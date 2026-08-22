@@ -1,6 +1,39 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07111f"><title>Deal Recon v2</title><style>
 :root{--bg:#07111f;--card:#0f1d2e;--line:#263b54;--txt:#f5f8fc;--muted:#9eb0c6;--blue:#4aa8ff;--green:#34d17a;--red:#ff6b6b}*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:linear-gradient(#06101d,#0a1828);color:var(--txt)}.app{max-width:1100px;margin:auto;padding:16px 14px 90px}.top{display:flex;justify-content:space-between;align-items:center}.top h1{margin:0;font-size:30px}.sub{color:var(--muted);font-size:13px}.badge{border:1px solid #2c6496;background:#112c49;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:900}.nav{display:flex;gap:7px;overflow:auto;padding:14px 0;position:sticky;top:0;background:#07111fee;z-index:5}.nav button{white-space:nowrap;background:#0f1d2e;color:#b1c0d2;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-weight:800}.nav button.on{background:#174574;color:#fff}.panel{display:none}.panel.on{display:block}.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}.card{grid-column:span 6;background:#0f1d2ef5;border:1px solid var(--line);border-radius:18px;padding:16px}.full{grid-column:1/-1}.card h2{margin:0 0 12px;font-size:18px}.fields{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.f{display:flex;flex-direction:column;gap:5px}.f label{font-size:11px;color:var(--muted);font-weight:800}.f input,.f select,.f textarea{background:#081522;color:#fff;border:1px solid #2a405d;border-radius:10px;padding:11px;font:inherit}.f textarea{min-height:86px}.btn{border:0;border-radius:11px;padding:11px 14px;font-weight:900;background:var(--blue);color:#03111e}.btn.alt{background:#172e49;color:#fff;border:1px solid #31516f}.btn.red{background:#402129;color:#ffc7cd}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.metric{background:#081522;border:1px solid #203853;border-radius:13px;padding:12px}.metric small{display:block;color:var(--muted);font-weight:800;text-transform:uppercase;font-size:10px}.metric strong{display:block;font-size:20px;margin-top:5px}.item{background:#091725;border:1px solid #203650;border-radius:13px;padding:12px;margin:8px 0}.item h3{margin:0 0 5px;font-size:15px}.item p{margin:3px 0;color:var(--muted);font-size:12px}.tag{display:inline-block;border:1px solid #31577c;border-radius:99px;padding:4px 7px;font-size:10px;margin:2px}.notice{padding:11px 13px;background:#0d2744;border:1px solid #245681;border-radius:12px;color:#c8e4ff;font-size:12px;margin-bottom:12px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #203650;text-align:left}th{color:var(--muted)}@media(max-width:760px){.card{grid-column:1/-1}.fields{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}}
-body{padding-top:32px!important}.top{padding-top:12px!important;align-items:flex-start!important}.top h1{margin:0!important;line-height:1.15!important;position:relative!important;top:0!important}.nav{padding-left:0!important;margin-left:0!important}</style></head><body><div class="app"><div class="top"><div><h1>Deal Recon</h1><div class="sub">Find • Analyze • Offer • Track • Close</div></div><div class="badge">INVESTOR PLATFORM • V2</div></div><div class="nav"><button data-p="dash" class="on">Dashboard</button><button data-p="analyze" class="">Analyzer</button><button data-p="rehab" class="">Rehab</button><button data-p="flip" class="">Flip</button><button data-p="brrrr" class="">BRRRR</button><button data-p="owner" class="">Owner Recon</button><button data-p="leads" class="">Leads</button><button data-p="pipeline" class="">Pipeline</button><button data-p="notes" class="">Notes</button></div>
+body{padding-top:32px!important}.top{padding-top:12px!important;align-items:flex-start!important}.top h1{margin:0!important;line-height:1.15!important;position:relative!important;top:0!important}.nav{padding-left:0!important;margin-left:0!important}</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyALEW85ZZAJF7byJ76XndYSDReXmnxpbss",
+  authDomain: "deal-recon.firebaseapp.com",
+  projectId: "deal-recon",
+  storageBucket: "deal-recon.firebasestorage.app",
+  messagingSenderId: "951000468121",
+  appId: "1:951000468121:web:02007d3a0a2ebc4c40c608"
+};
+
+firebase.initializeApp(firebaseConfig);
+const drAuth = firebase.auth();
+const drDb = firebase.firestore();
+</script>
+
+</head><body>
+
+<div id="loginGate" style="position:fixed;inset:0;z-index:9999;background:#06101d;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:min(420px,100%);background:#0e1c2e;border:1px solid #213650;border-radius:20px;padding:22px;color:white;">
+    <h2 style="margin-top:0;">Deal Recon Sign In</h2>
+    <p style="color:#9fb0c6;font-size:13px;">Sign in to your shared Deal Recon workspace.</p>
+    <input id="loginEmail" type="email" placeholder="Email" style="width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #2a405e;background:#081523;color:white;">
+    <input id="loginPassword" type="password" placeholder="Password" style="width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #2a405e;background:#081523;color:white;">
+    <button id="loginBtn" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#42a5ff;color:#03111e;font-weight:900;">Sign In</button>
+    <div id="loginMsg" style="margin-top:10px;color:#ffb4b4;font-size:12px;"></div>
+  </div>
+</div>
+<div class="app"><div class="top"><div><h1>Deal Recon</h1><div class="sub">Find • Analyze • Offer • Track • Close</div></div><div class="badge">INVESTOR PLATFORM • V2</div></div><div class="nav"><button data-p="dash" class="on">Dashboard</button><button data-p="analyze" class="">Analyzer</button><button data-p="rehab" class="">Rehab</button><button data-p="flip" class="">Flip</button><button data-p="brrrr" class="">BRRRR</button><button data-p="owner" class="">Owner Recon</button><button data-p="leads" class="">Leads</button><button data-p="pipeline" class="">Pipeline</button><button data-p="notes" class="">Notes</button></div>
 <section id="dash" class="panel on"><div class="grid"><div class="card full"><h2>Investor Command Center</h2><div class="metrics"><div class="metric"><small>Saved Deals</small><strong id="dDeals">0</strong></div><div class="metric"><small>Leads</small><strong id="dLeads">0</strong></div><div class="metric"><small>Pipeline</small><strong id="dPipe">0</strong></div><div class="metric"><small>Rehab Budgets</small><strong id="dRehab">0</strong></div></div></div><div class="card"><h2>Quick Actions</h2><div class="actions"><button class="btn" onclick="go('analyze')">Analyze Deal</button><button class="btn alt" onclick="go('rehab')">Estimate Rehab</button><button class="btn alt" onclick="go('owner')">Owner Recon</button><button class="btn alt" onclick="go('leads')">Add Lead</button></div></div><div class="card"><h2>Workflow</h2><p class="sub">Property → Owner → Contact → Analyze → Rehab → Offer → Pipeline → Close</p><div id="recent"></div></div></div></section>
 <section id="analyze" class="panel"><div class="notice">Rental and multifamily analyzer with saved deals and maximum-offer logic.</div><div class="grid"><div class="card"><h2>Property</h2><div class="fields"><div class="f"><label>Address / Deal Name</label><input id="aName" placeholder="123 Main St"></div><div class="f"><label>Type</label><select id="aType"><option>Single Family Rental</option><option>Duplex</option><option>3–4 Unit</option><option>5–20 Unit Multifamily</option></select></div><div class="f"><label>Purchase Price</label><input id="aPrice" type="number" value="475000"></div><div class="f"><label>Units</label><input id="aUnits" type="number" value="4"></div><div class="f"><label>Rehab</label><input id="aRehab" type="number" value="40000"></div><div class="f"><label>Closing Costs</label><input id="aClose" type="number" value="12000"></div></div></div><div class="card"><h2>Financing</h2><div class="fields"><div class="f"><label>Down Payment %</label><input id="aDown" type="number" value="25"></div><div class="f"><label>Interest %</label><input id="aRate" type="number" value="7.25"></div><div class="f"><label>Term Years</label><input id="aTerm" type="number" value="30"></div></div></div><div class="card"><h2>Income</h2><div class="fields"><div class="f"><label>Monthly Rent</label><input id="aRent" type="number" value="7200"></div><div class="f"><label>Other Income / Mo</label><input id="aOther" type="number" value="0"></div><div class="f"><label>Vacancy %</label><input id="aVac" type="number" value="5"></div></div></div><div class="card"><h2>Expenses</h2><div class="fields"><div class="f"><label>Taxes / Year</label><input id="aTax" type="number" value="9000"></div><div class="f"><label>Insurance / Year</label><input id="aIns" type="number" value="3000"></div><div class="f"><label>Utilities / Month</label><input id="aUtil" type="number" value="400"></div><div class="f"><label>Repairs %</label><input id="aRep" type="number" value="7"></div><div class="f"><label>Management %</label><input id="aMgmt" type="number" value="8"></div><div class="f"><label>CapEx %</label><input id="aCapex" type="number" value="5"></div></div></div><div class="card full"><h2>Deal Results</h2><div class="metrics"><div class="metric" id="scoreBox"><small>Deal Score</small><strong id="rScore">—</strong><span id="rScoreLabel" class="tag">—</span></div><div class="metric"><small>Cash Flow / Mo</small><strong id="rCash"></strong></div><div class="metric"><small>NOI</small><strong id="rNoi"></strong></div><div class="metric"><small>Cap Rate</small><strong id="rCap"></strong></div><div class="metric"><small>Cash-on-Cash</small><strong id="rCoc"></strong></div><div class="metric"><small>DSCR</small><strong id="rDscr"></strong></div><div class="metric"><small>GRM</small><strong id="rGrm"></strong></div><div class="metric"><small>Price / Unit</small><strong id="rPpu"></strong></div><div class="metric"><small>Max Offer</small><strong id="rMax"></strong></div></div><div class="actions"><button class="btn" onclick="saveDeal()">Save Deal</button></div></div><div class="card full"><h2>Saved Deals</h2><div id="dealList"></div></div></div></section>
 <section id="rehab" class="panel"><div class="grid"><div class="card full"><h2>Rehab Cost Estimator</h2><div class="fields"><div class="f"><label>Property / Project</label><input id="rhName"></div><div class="f"><label>Contingency %</label><input id="rhCont" type="number" value="10"></div></div><table><thead><tr><th>Category</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr></thead><tbody id="rehabRows"></tbody></table><div class="metrics" style="margin-top:12px"><div class="metric"><small>Subtotal</small><strong id="rhSub"></strong></div><div class="metric"><small>Contingency</small><strong id="rhContVal"></strong></div><div class="metric"><small>Total Rehab</small><strong id="rhTotal"></strong></div></div><div class="actions"><button class="btn" onclick="saveRehab()">Save Rehab Budget</button></div></div><div class="card full"><h2>Saved Rehab Budgets</h2><div id="rehabList"></div></div></div></section>
@@ -11,6 +44,101 @@ body{padding-top:32px!important}.top{padding-top:12px!important;align-items:flex
 <section id="pipeline" class="panel"><div class="grid"><div class="card"><h2>Add Pipeline Item</h2><div class="fields"><div class="f"><label>Property / Lead</label><input id="pName"></div><div class="f"><label>Stage</label><select id="pStage"><option>New Lead</option><option>Contacted</option><option>Follow-Up</option><option>Appointment</option><option>Offer</option><option>Under Contract</option><option>Closed</option><option>Lost</option></select></div><div class="f"><label>Next Follow-up</label><input id="pDate" type="date"></div><div class="f"><label>Offer / Target Price</label><input id="pOffer" type="number"></div></div><div class="actions"><button class="btn" onclick="addPipe()">Add to Pipeline</button></div></div><div class="card"><h2>Pipeline Summary</h2><div id="pipeSummary"></div></div><div class="card full"><h2>Active Pipeline</h2><div id="pipeList"></div></div></div></section>
 <section id="notes" class="panel"><div class="grid"><div class="card"><h2>Property Notes</h2><div class="fields"><div class="f"><label>Property / Deal</label><input id="nProp"></div><div class="f"><label>Type</label><select id="nType"><option>General</option><option>Rehab</option><option>Owner Contact</option><option>Offer</option><option>Inspection</option><option>Document Reference</option></select></div><div class="f" style="grid-column:1/-1"><label>Notes</label><textarea id="nText"></textarea></div><div class="f"><label>Photo / Document Reference</label><input id="nFile" placeholder="Rent Roll.pdf"></div></div><div class="actions"><button class="btn" onclick="addNote()">Save Note</button></div></div><div class="card"><h2>Photos & Documents</h2><p class="sub">This version records file/photo references locally. Direct file vault storage and cloud sync require native-storage integration.</p></div><div class="card full"><h2>Saved Notes</h2><div id="noteList"></div></div></div></section>
 </div><script>
-const $=id=>document.getElementById(id),num=id=>Number($(id)?.value)||0,money=v=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(isFinite(v)?v:0),get=k=>JSON.parse(localStorage.getItem('dr2_'+k)||'[]'),set=(k,v)=>localStorage.setItem('dr2_'+k,JSON.stringify(v)),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function go(id){document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('on',x.id===id));document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('on',x.dataset.p===id))}document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>go(b.dataset.p));function pay(p,rate,yrs=30){let r=rate/1200,n=yrs*12;if(!p)return 0;if(!r)return p/n;return p*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)}function calcDeal(priceOverride){let price=priceOverride??num('aPrice'),gross=(num('aRent')+num('aOther'))*12,col=gross*(1-num('aVac')/100),opex=num('aTax')+num('aIns')+num('aUtil')*12+col*(num('aRep')+num('aMgmt')+num('aCapex'))/100,noi=col-opex,down=price*num('aDown')/100,loan=price-down,debt=pay(loan,num('aRate'),num('aTerm'))*12,cash=down+num('aRehab')+num('aClose'),cf=noi-debt;return{price,noi,cf,cap:price?noi/price*100:0,coc:cash?cf/cash*100:0,dscr:debt?noi/debt:0,grm:gross?price/gross:0,ppu:price/Math.max(1,num('aUnits'))}}function maxOffer(){let lo=0,hi=Math.max(num('aPrice')*2,1000000),best=0;for(let i=0;i<70;i++){let m=(lo+hi)/2,r=calcDeal(m);if(r.cf/12>=1000&&r.coc>=10){best=m;lo=m}else hi=m}return best}function renderDeal(){let r=calcDeal();let score=0;score+=Math.max(0,Math.min(25,(r.cf/12)/50));score+=Math.max(0,Math.min(25,(r.coc/12)*25));score+=Math.max(0,Math.min(20,((r.dscr-1)/0.5)*20));score+=Math.max(0,Math.min(20,(r.cap/8)*20));score+=Math.max(0,Math.min(10,(1-Math.min(r.grm,20)/20)*10));score=Math.round(score);let box=$("scoreBox"),label=$("rScoreLabel");$("rScore").textContent=score+"/100";let txt=score>=80?"Strong Deal":score>=60?"Worth Reviewing":"Weak Deal";label.textContent=txt;box.style.borderColor=score>=80?"#2ecc71":score>=60?"#f4b942":"#ff6464";box.style.boxShadow=score>=80?"0 0 0 1px #2ecc71 inset":score>=60?"0 0 0 1px #f4b942 inset":"0 0 0 1px #ff6464 inset";$('rCash').textContent=money(r.cf/12);$('rNoi').textContent=money(r.noi);$('rCap').textContent=r.cap.toFixed(1)+'%';$('rCoc').textContent=r.coc.toFixed(1)+'%';$('rDscr').textContent=r.dscr.toFixed(2);$('rGrm').textContent=r.grm.toFixed(2);$('rPpu').textContent=money(r.ppu);$('rMax').textContent=money(maxOffer())}document.querySelectorAll('#analyze input').forEach(x=>x.oninput=renderDeal);function saveDeal(){let r=calcDeal(),a=get('deals');a.unshift({id:Date.now(),name:$('aName').value||'Untitled Deal',type:$('aType').value,price:r.price,cap:r.cap,coc:r.coc,dscr:r.dscr,cash:r.cf/12});set('deals',a);renderAll()}
+const $=id=>document.getElementById(id),num=id=>Number($(id)?.value)||0,money=v=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(isFinite(v)?v:0),get=k=>JSON.parse(localStorage.getItem('dr2_'+k)||'[]'),set=(k,v)=>{localStorage.setItem('dr2_'+k,JSON.stringify(v));if(window.drCloudReady&&!window.drApplyingCloud&&window.drSharedRef){window.drSharedRef.set({[k]:v},{merge:true}).catch(err=>console.log('Cloud sync:',err));}},esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function go(id){document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('on',x.id===id));document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('on',x.dataset.p===id))}document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>go(b.dataset.p));function pay(p,rate,yrs=30){let r=rate/1200,n=yrs*12;if(!p)return 0;if(!r)return p/n;return p*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)}function calcDeal(priceOverride){let price=priceOverride??num('aPrice'),gross=(num('aRent')+num('aOther'))*12,col=gross*(1-num('aVac')/100),opex=num('aTax')+num('aIns')+num('aUtil')*12+col*(num('aRep')+num('aMgmt')+num('aCapex'))/100,noi=col-opex,down=price*num('aDown')/100,loan=price-down,debt=pay(loan,num('aRate'),num('aTerm'))*12,cash=down+num('aRehab')+num('aClose'),cf=noi-debt;return{price,noi,cf,cap:price?noi/price*100:0,coc:cash?cf/cash*100:0,dscr:debt?noi/debt:0,grm:gross?price/gross:0,ppu:price/Math.max(1,num('aUnits'))}}function maxOffer(){let lo=0,hi=Math.max(num('aPrice')*2,1000000),best=0;for(let i=0;i<70;i++){let m=(lo+hi)/2,r=calcDeal(m);if(r.cf/12>=1000&&r.coc>=10){best=m;lo=m}else hi=m}return best}function renderDeal(){let r=calcDeal();let score=0;score+=Math.max(0,Math.min(25,(r.cf/12)/50));score+=Math.max(0,Math.min(25,(r.coc/12)*25));score+=Math.max(0,Math.min(20,((r.dscr-1)/0.5)*20));score+=Math.max(0,Math.min(20,(r.cap/8)*20));score+=Math.max(0,Math.min(10,(1-Math.min(r.grm,20)/20)*10));score=Math.round(score);let box=$("scoreBox"),label=$("rScoreLabel");$("rScore").textContent=score+"/100";let txt=score>=80?"Strong Deal":score>=60?"Worth Reviewing":"Weak Deal";label.textContent=txt;box.style.borderColor=score>=80?"#2ecc71":score>=60?"#f4b942":"#ff6464";box.style.boxShadow=score>=80?"0 0 0 1px #2ecc71 inset":score>=60?"0 0 0 1px #f4b942 inset":"0 0 0 1px #ff6464 inset";$('rCash').textContent=money(r.cf/12);$('rNoi').textContent=money(r.noi);$('rCap').textContent=r.cap.toFixed(1)+'%';$('rCoc').textContent=r.coc.toFixed(1)+'%';$('rDscr').textContent=r.dscr.toFixed(2);$('rGrm').textContent=r.grm.toFixed(2);$('rPpu').textContent=money(r.ppu);$('rMax').textContent=money(maxOffer())}document.querySelectorAll('#analyze input').forEach(x=>x.oninput=renderDeal);function saveDeal(){let r=calcDeal(),a=get('deals');a.unshift({id:Date.now(),name:$('aName').value||'Untitled Deal',type:$('aType').value,price:r.price,cap:r.cap,coc:r.coc,dscr:r.dscr,cash:r.cf/12});set('deals',a);renderAll()}
 const cats=['Kitchen','Bathroom','Flooring','Interior Paint','Roofing','HVAC','Electrical','Plumbing','Windows / Doors','Exterior / Siding','Landscaping','Structural / Other'];$('rehabRows').innerHTML=cats.map((c,i)=>`<tr><td>${c}</td><td><input class="rq" data-i="${i}" type="number" value="${i<2?1:0}" style="width:70px"></td><td><input class="rc" data-i="${i}" type="number" value="${i==0?15000:i==1?9000:0}" style="width:95px"></td><td id="rt${i}">$0</td></tr>`).join('');function rehabCalc(){let s=0;cats.forEach((c,i)=>{let q=Number(document.querySelector(`.rq[data-i="${i}"]`).value)||0,u=Number(document.querySelector(`.rc[data-i="${i}"]`).value)||0,t=q*u;s+=t;$('rt'+i).textContent=money(t)});let ct=s*num('rhCont')/100;$('rhSub').textContent=money(s);$('rhContVal').textContent=money(ct);$('rhTotal').textContent=money(s+ct);return s+ct}document.querySelectorAll('.rq,.rc,#rhCont').forEach(x=>x.oninput=rehabCalc);function saveRehab(){let a=get('rehabs');a.unshift({id:Date.now(),name:$('rhName').value||'Rehab Project',total:rehabCalc()});set('rehabs',a);renderAll()}function renderFlip(){let buy=num('fBuy'),reh=num('fRehab'),arv=num('fArv'),total=buy+reh+num('fBuyCost')+num('fHold')+arv*num('fSellPct')/100,profit=arv-total;$('fTotal').textContent=money(total);$('fProfit').textContent=money(profit);$('fRoi').textContent=(total?profit/total*100:0).toFixed(1)+'%';$('fMao').textContent=money(arv*.7-reh)}document.querySelectorAll('#flip input').forEach(x=>x.oninput=renderFlip);function renderB(){let basis=num('bBuy')+num('bRehab')+num('bCosts'),loan=num('bArv')*num('bLtv')/100,left=basis+num('bRefi')-loan,debt=pay(loan,num('bRate'),30),cf=num('bRent')-num('bOpex')-debt;$('bBasis').textContent=money(basis);$('bLoan').textContent=money(loan);$('bLeft').textContent=money(Math.max(0,left));$('bCash').textContent=money(cf)+'/mo'}document.querySelectorAll('#brrrr input').forEach(x=>x.oninput=renderB);function addOwner(){let a=get('owners');a.unshift({id:Date.now(),prop:$('oProp').value,name:$('oName').value,mail:$('oMail').value,county:$('oCounty').value,assess:num('oAssess'),type:$('oType').value});set('owners',a);renderAll()}$('csv').onchange=e=>{let f=e.target.files[0];if(!f)return;let rd=new FileReader();rd.onload=()=>{let lines=rd.result.split(/\r?\n/).filter(Boolean),h=lines.shift().split(',').map(x=>x.trim().toLowerCase()),a=get('owners');for(let line of lines){let v=line.split(',');let o={};h.forEach((k,i)=>o[k]=v[i]?.trim()||'');a.unshift({id:Date.now()+Math.random(),prop:o.property_address||o.address||'',name:o.owner_name||o.owner||'',mail:o.mailing_address||'',county:o.county||'',assess:Number(o.assessed_value)||0,type:o.property_type||''})}set('owners',a);renderAll()};rd.readAsText(f)};function addLead(){let a=get('leads');a.unshift({id:Date.now(),name:$('lName').value,prop:$('lProp').value,phone:$('lPhone').value,email:$('lEmail').value,source:$('lSource').value,status:$('lStatus').value,dnc:$('lDnc').value});set('leads',a);renderAll()}function addPipe(){let a=get('pipe');a.unshift({id:Date.now(),name:$('pName').value,stage:$('pStage').value,date:$('pDate').value,offer:num('pOffer')});set('pipe',a);renderAll()}function addNote(){let a=get('notes');a.unshift({id:Date.now(),prop:$('nProp').value,type:$('nType').value,text:$('nText').value,file:$('nFile').value});set('notes',a);renderAll()}function del(k,id){set(k,get(k).filter(x=>x.id!==id));renderAll()}function renderAll(){let deals=get('deals'),leads=get('leads'),pipe=get('pipe'),reh=get('rehabs'),owners=get('owners'),notes=get('notes');$('dDeals').textContent=deals.length;$('dLeads').textContent=leads.length;$('dPipe').textContent=pipe.length;$('dRehab').textContent=reh.length;$('recent').innerHTML=deals.slice(0,3).map(x=>`<div class="item"><h3>${esc(x.name)}</h3><p>${money(x.price)} • ${money(x.cash)}/mo</p></div>`).join('')||'<p class="sub">No saved deals yet.</p>';$('dealList').innerHTML=deals.map(x=>`<div class="item"><h3>${esc(x.name)}</h3><p>${esc(x.type)} • ${money(x.price)} • Cap ${x.cap.toFixed(1)}% • CoC ${x.coc.toFixed(1)}% • DSCR ${x.dscr.toFixed(2)} • ${money(x.cash)}/mo</p><button class="btn red" onclick="del('deals',${x.id})">Delete</button></div>`).join('')||'<p class="sub">No saved deals.</p>';$('rehabList').innerHTML=reh.map(x=>`<div class="item"><h3>${esc(x.name)}</h3><p>Total rehab: ${money(x.total)}</p><button class="btn red" onclick="del('rehabs',${x.id})">Delete</button></div>`).join('')||'<p class="sub">No saved rehab budgets.</p>';$('ownerList').innerHTML=owners.map(x=>`<div class="item"><h3>${esc(x.prop||'Property')}</h3><p><b>${esc(x.name||'Owner unknown')}</b> • ${esc(x.mail)} • ${esc(x.county)} • ${money(x.assess)} • ${esc(x.type)}</p><span class="tag">${x.mail&&x.prop&&x.mail.toLowerCase()!=x.prop.toLowerCase()?'Possible absentee':'Owner record'}</span> <button class="btn red" onclick="del('owners',${x.id})">Delete</button></div>`).join('')||'<p class="sub">No tax records yet.</p>';$('leadList').innerHTML=leads.map(x=>`<div class="item"><h3>${esc(x.name||'Lead')}</h3><p>${esc(x.prop)} • ${esc(x.phone)} • ${esc(x.email)}</p><span class="tag">${esc(x.status)}</span><span class="tag">${esc(x.source)}</span><p>DNC/permission: ${esc(x.dnc||'Not recorded')}</p><button class="btn red" onclick="del('leads',${x.id})">Delete</button></div>`).join('')||'<p class="sub">No leads yet.</p>';$('pipeList').innerHTML=pipe.map(x=>`<div class="item"><h3>${esc(x.name||'Pipeline Item')}</h3><p>${esc(x.stage)} • Follow-up ${esc(x.date||'not set')} • ${money(x.offer)}</p><button class="btn red" onclick="del('pipe',${x.id})">Delete</button></div>`).join('')||'<p class="sub">No pipeline items.</p>';let counts={};pipe.forEach(x=>counts[x.stage]=(counts[x.stage]||0)+1);$('pipeSummary').innerHTML=Object.entries(counts).map(([k,v])=>`<span class="tag">${esc(k)}: ${v}</span>`).join('')||'<p class="sub">Pipeline is empty.</p>';$('noteList').innerHTML=notes.map(x=>`<div class="item"><h3>${esc(x.prop||'Note')} • ${esc(x.type)}</h3><p>${esc(x.text)}</p><p>${esc(x.file)}</p><button class="btn red" onclick="del('notes',${x.id})">Delete</button></div>`).join('')||'<p class="sub">No notes yet.</p>'}renderDeal();rehabCalc();renderFlip();renderB();renderAll();
-</script></body></html>
+</script>
+<script>
+const loginGate = document.getElementById("loginGate");
+const loginBtn = document.getElementById("loginBtn");
+const loginMsg = document.getElementById("loginMsg");
+
+loginBtn.addEventListener("click", async () => {
+  loginMsg.textContent = "";
+  try {
+    await drAuth.signInWithEmailAndPassword(
+      document.getElementById("loginEmail").value.trim(),
+      document.getElementById("loginPassword").value
+    );
+  } catch (err) {
+    loginMsg.textContent = "Sign-in failed. Check your email and password.";
+  }
+});
+
+drAuth.onAuthStateChanged(user => {
+  loginGate.style.display = user ? "none" : "flex";
+});
+</script>
+
+
+<script>
+window.drCloudReady = false;
+window.drApplyingCloud = false;
+window.drSharedRef = null;
+window.drUnsubscribe = null;
+
+function startDealReconCloudSync(user){
+  if(window.drUnsubscribe){
+    window.drUnsubscribe();
+    window.drUnsubscribe = null;
+  }
+
+  window.drSharedRef = drDb.collection("dealReconShared").doc("workspace");
+
+  window.drUnsubscribe = window.drSharedRef.onSnapshot(
+    snap => {
+      if(!snap.exists){
+        const seed = {};
+        ["deals","leads","pipe","rehabs","owners","notes"].forEach(k => {
+          try {
+            seed[k] = JSON.parse(localStorage.getItem("dr2_"+k) || "[]");
+          } catch(e) {
+            seed[k] = [];
+          }
+        });
+
+        seed.createdBy = user.uid;
+        seed.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+
+        window.drSharedRef.set(seed, {merge:true});
+        return;
+      }
+
+      const data = snap.data();
+
+      window.drApplyingCloud = true;
+
+      ["deals","leads","pipe","rehabs","owners","notes"].forEach(k => {
+        if(Array.isArray(data[k])){
+          localStorage.setItem("dr2_"+k, JSON.stringify(data[k]));
+        }
+      });
+
+      window.drApplyingCloud = false;
+      window.drCloudReady = true;
+
+      if(typeof renderAll === "function"){
+        renderAll();
+      }
+    },
+    err => {
+      console.log("Firestore sync error:", err);
+    }
+  );
+}
+
+drAuth.onAuthStateChanged(user => {
+  if(user){
+    startDealReconCloudSync(user);
+  } else {
+    window.drCloudReady = false;
+    window.drSharedRef = null;
+
+    if(window.drUnsubscribe){
+      window.drUnsubscribe();
+      window.drUnsubscribe = null;
+    }
+  }
+});
+</script>
+
+</body></html>
