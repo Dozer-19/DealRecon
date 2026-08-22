@@ -1,0 +1,10 @@
+.gradle/
+.gradle-dist/
+.android-sdk/
+app/build/
+local.properties
+firebase-config.txt
+*.apk
+
+.commandlinetools.zip
+.gradle.zip
