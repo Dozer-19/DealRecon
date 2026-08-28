@@ -67,6 +67,25 @@ function saveDeal(){
     rep:num('aRep'),
     mgmt:num('aMgmt'),
     capex:num('aCapex'),
+    flip:{
+      buy:num('fBuy'),
+      rehab:num('fRehab'),
+      arv:num('fArv'),
+      buyCost:num('fBuyCost'),
+      hold:num('fHold'),
+      sellPct:num('fSellPct')
+    },
+    brrrr:{
+      buy:num('bBuy'),
+      rehab:num('bRehab'),
+      costs:num('bCosts'),
+      arv:num('bArv'),
+      ltv:num('bLtv'),
+      refi:num('bRefi'),
+      rent:num('bRent'),
+      opex:num('bOpex'),
+      rate:num('bRate')
+    },
     cap:r.cap,
     coc:r.coc,
     dscr:r.dscr,
@@ -100,6 +119,27 @@ function openDeal(id){
   if(d.rep!==undefined)$('aRep').value=d.rep;
   if(d.mgmt!==undefined)$('aMgmt').value=d.mgmt;
   if(d.capex!==undefined)$('aCapex').value=d.capex;
+  if(d.flip){
+    if(d.flip.buy!==undefined)$('fBuy').value=d.flip.buy;
+    if(d.flip.rehab!==undefined)$('fRehab').value=d.flip.rehab;
+    if(d.flip.arv!==undefined)$('fArv').value=d.flip.arv;
+    if(d.flip.buyCost!==undefined)$('fBuyCost').value=d.flip.buyCost;
+    if(d.flip.hold!==undefined)$('fHold').value=d.flip.hold;
+    if(d.flip.sellPct!==undefined)$('fSellPct').value=d.flip.sellPct;
+  }
+  if(d.brrrr){
+    if(d.brrrr.buy!==undefined)$('bBuy').value=d.brrrr.buy;
+    if(d.brrrr.rehab!==undefined)$('bRehab').value=d.brrrr.rehab;
+    if(d.brrrr.costs!==undefined)$('bCosts').value=d.brrrr.costs;
+    if(d.brrrr.arv!==undefined)$('bArv').value=d.brrrr.arv;
+    if(d.brrrr.ltv!==undefined)$('bLtv').value=d.brrrr.ltv;
+    if(d.brrrr.refi!==undefined)$('bRefi').value=d.brrrr.refi;
+    if(d.brrrr.rent!==undefined)$('bRent').value=d.brrrr.rent;
+    if(d.brrrr.opex!==undefined)$('bOpex').value=d.brrrr.opex;
+    if(d.brrrr.rate!==undefined)$('bRate').value=d.brrrr.rate;
+  }
+  renderFlip();
+  renderB();
   let rh=get('rehabs').find(x=>x.dealId===d.id);
   if(rh){
     if($('rhName')) $('rhName').value=rh.name||d.name||'';
