@@ -2,14 +2,24 @@ package com.kenleposa.dealrecon;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.webkit.JavascriptInterface;
 import android.os.Bundle;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.window.OnBackInvokedDispatcher;
-
+import org.json.JSONObject;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.firebase.ai.FirebaseAI;
+import com.google.firebase.ai.GenerativeModel;
+import com.google.firebase.ai.java.GenerativeModelFutures;
+import com.google.firebase.ai.type.Content;
+import com.google.firebase.ai.type.GenerateContentResponse;
+import com.google.firebase.ai.type.GenerativeBackend;
 public class MainActivity extends Activity {
+private GenerativeModelFutures aiModel;
     private WebView webView;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -18,6 +28,10 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         webView = new WebView(this);
         setContentView(webView);
+
+GenerativeModel model = FirebaseAI.getInstance(GenerativeBackend.googleAI())
+        .generativeModel("gemini-3.7-flash");
+aiModel = GenerativeModelFutures.from(model);
 
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -28,7 +42,7 @@ public class MainActivity extends Activity {
         s.setDisplayZoomControls(false);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
-
+webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
         webView.loadUrl("file:///android_asset/index.html");
@@ -59,5 +73,32 @@ public class MainActivity extends Activity {
             webView = null;
         }
         super.onDestroy();
-    }
+}
+
+private class DealReconAI {
+    @JavascriptInterface
+    public void ask(String prompt) {
+Content content = new Content.Builder().addText(prompt).build();
+ListenableFuture<GenerateContentResponse> future = aiModel.generateContent(content);
+future.addListener(() -> {
+try {
+GenerateContentResponse response = future.get();
+String text = response.getText();
+sendAIResult(text);
+} catch (Exception e) {
+sendAIError(e.getMessage());
+}
+}, MoreExecutors.directExecutor());
+}
+}
+
+private void sendAIResult(String text) {
+    if (text == null) text = "No AI response returned.";
+    webView.post(() -> webView.evaluateJavascript("window.onDealReconAIResult && window.onDealReconAIResult(" + JSONObject.quote(text) + ");", null));
+}
+
+private void sendAIError(String message) {
+    if (message == null) message = "Unknown AI error."; 
+    webView.post(() -> webView.evaluateJavascript("window.onDealReconAIError && window.onDealReconAIError(" + JSONObject.quote(message) + ");", null));
+}
 }

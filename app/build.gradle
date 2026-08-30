@@ -1,4 +1,4 @@
-plugins { id 'com.android.application' }
+plugins { id 'com.android.application'; id 'com.google.gms.google-services' }
 
 android {
     namespace 'com.kenleposa.dealrecon'
@@ -11,4 +11,11 @@ android {
         versionCode 2
         versionName '1.0.0'
     }
+}
+
+dependencies {
+    implementation platform('com.google.firebase:firebase-bom:34.18.0')
+    implementation 'com.google.firebase:firebase-ai'
+    implementation 'com.google.firebase:firebase-appcheck-debug'
+    implementation 'com.google.guava:guava:31.0.1-android'
 }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "951000468121",
+    "project_id": "deal-recon",
+    "storage_bucket": "deal-recon.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:951000468121:android:4fd5b3c4a7bff51940c608",
+        "android_client_info": {
+          "package_name": "com.kenleposa.dealrecon"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqdRzlOH_Z-mt6aH6TLOtlfkBo7BsvYzo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -8,3 +8,10 @@ firebase-config.txt
 
 .commandlinetools.zip
 .gradle.zip
+
+# Local backups and sensitive/dev files
+*-BEFORE-*.html
+*-BEFORE-*.txt
+debug.keystore
+functions/
+main
