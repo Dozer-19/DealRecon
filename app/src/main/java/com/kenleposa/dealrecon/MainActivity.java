@@ -93,12 +93,14 @@ sendAIError(e.getMessage());
 }
 
 private void sendAIResult(String text) {
-    if (text == null) text = "No AI response returned.";
-    webView.post(() -> webView.evaluateJavascript("window.onDealReconAIResult && window.onDealReconAIResult(" + JSONObject.quote(text) + ");", null));
+    final String safeText = (text == null) ? "No AI response returned." : text;
+    if (webView == null) return;
+    webView.post(() -> webView.evaluateJavascript("window.onDealReconAIResult && window.onDealReconAIResult(" + JSONObject.quote(safeText) + ");", null));
 }
 
 private void sendAIError(String message) {
-    if (message == null) message = "Unknown AI error."; 
-    webView.post(() -> webView.evaluateJavascript("window.onDealReconAIError && window.onDealReconAIError(" + JSONObject.quote(message) + ");", null));
+    final String safeMessage = (message == null) ? "Unknown AI error." : message;
+    if (webView == null) return;
+    webView.post(() -> webView.evaluateJavascript("window.onDealReconAIError && window.onDealReconAIError(" + JSONObject.quote(safeMessage) + ");", null));
 }
 }

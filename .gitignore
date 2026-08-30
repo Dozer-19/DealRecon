@@ -14,4 +14,6 @@ firebase-config.txt
 *-BEFORE-*.txt
 debug.keystore
 functions/
-main
+
+MainActivity-AI-BACKUP.txt
+/main
