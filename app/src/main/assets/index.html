@@ -154,7 +154,10 @@ function openDeal(id){
   renderProfile();
   go('analyze');
 }
-const cats=['Kitchen','Bathroom','Flooring','Interior Paint','Roofing','HVAC','Electrical','Plumbing','Windows / Doors','Exterior / Siding','Landscaping','Structural / Other'];$('rehabRows').innerHTML=cats.map((c,i)=>`<tr><td>${c}</td><td><input class="rq" data-i="${i}" type="number" value="${i<2?1:0}" style="width:70px"></td><td><input class="rc" data-i="${i}" type="number" value="${i==0?15000:i==1?9000:0}" style="width:95px"></td><td id="rt${i}">$0</td></tr>`).join('');function rehabCalc(){let s=0;cats.forEach((c,i)=>{let q=Number(document.querySelector(`.rq[data-i="${i}"]`).value)||0,u=Number(document.querySelector(`.rc[data-i="${i}"]`).value)||0,t=q*u;s+=t;$('rt'+i).textContent=money(t)});let ct=s*num('rhCont')/100;$('rhSub').textContent=money(s);$('rhContVal').textContent=money(ct);$('rhTotal').textContent=money(s+ct);return s+ct}document.querySelectorAll('.rq,.rc,#rhCont').forEach(x=>x.oninput=rehabCalc);function applyRehabToDeal(total){
+const cats=['Kitchen','Bathroom','Flooring','Interior Paint','Roofing','HVAC','Electrical','Plumbing','Windows / Doors','Exterior / Siding','Landscaping','Structural / Other'];$('rehabRows').innerHTML=cats.map((c,i)=>`<tr><td>${c}</td><td><input class="rq" data-i="${i}" type="number" value="${i<2?1:0}" style="width:70px"></td><td><input class="rc" data-i="${i}" type="number" value="${i==0?15000:i==1?9000:0}" style="width:95px"></td><td id="rt${i}">$0</td></tr>`).join('');function rehabCalc(){let s=0;cats.forEach((c,i)=>{let q=Number(document.querySelector(`.rq[data-i="${i}"]`).value)||0,u=Number(document.querySelector(`.rc[data-i="${i}"]`).value)||0,t=q*u;s+=t;$('rt'+i).textContent=money(t)});let ct=s*num('rhCont')/100;$('rhSub').textContent=money(s);$('rhContVal').textContent=money(ct);$('rhTotal').textContent=money(s+ct);return s+ct}document.querySelectorAll('.rq,.rc,#rhCont').forEach(x=>x.oninput=()=>{
+  let total=rehabCalc();
+  applyRehabToDeal(total);
+});function applyRehabToDeal(total){
   if($('aRehab')) $('aRehab').value=Math.round(total);
   if($('fRehab')) $('fRehab').value=Math.round(total);
   if($('bRehab')) $('bRehab').value=Math.round(total);
