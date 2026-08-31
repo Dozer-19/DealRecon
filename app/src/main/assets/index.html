@@ -146,9 +146,29 @@ function openDeal(id){
   renderFlip();
   renderB();
   let rh=get('rehabs').find(x=>x.dealId===d.id);
+  if($('rhName')) $('rhName').value=d.name||'';
   if(rh){
     if($('rhName')) $('rhName').value=rh.name||d.name||'';
-    applyRehabToDeal(rh.total);
+    if($('rhCont')) $('rhCont').value=rh.contingency!==undefined?rh.contingency:10;
+    if(Array.isArray(rh.rows)){
+      rh.rows.forEach((row,i)=>{
+        let q=document.querySelector(`.rq[data-i="${i}"]`);
+        let c=document.querySelector(`.rc[data-i="${i}"]`);
+        if(q) q.value=row.qty??0;
+        if(c) c.value=row.unitCost??0;
+      });
+    }
+    let total=rehabCalc();
+    applyRehabToDeal(total);
+  }else{
+    if($('rhCont')) $('rhCont').value=10;
+    cats.forEach((c,i)=>{
+      let q=document.querySelector(`.rq[data-i="${i}"]`);
+      let u=document.querySelector(`.rc[data-i="${i}"]`);
+      if(q) q.value=i<2?1:0;
+      if(u) u.value=i===0?15000:i===1?9000:0;
+    });
+    rehabCalc();
   }
   renderDeal();
   renderProfile();
@@ -170,10 +190,17 @@ function saveRehab(){
   let name=$('rhName').value||$('aName')?.value||'Rehab Project';
   let a=get('rehabs');
   let existing=currentDealId ? a.findIndex(x=>x.dealId===currentDealId) : -1;
+  let rows=cats.map((c,i)=>({
+    category:c,
+    qty:Number(document.querySelector(`.rq[data-i="${i}"]`).value)||0,
+    unitCost:Number(document.querySelector(`.rc[data-i="${i}"]`).value)||0
+  }));
   let item={
     id:existing>=0?a[existing].id:Date.now(),
     dealId:currentDealId||null,
     name,
+    contingency:num('rhCont'),
+    rows,
     total
   };
   if(existing>=0)a[existing]=item;else a.unshift(item);
