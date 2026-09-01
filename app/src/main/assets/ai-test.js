@@ -1,7 +1,15 @@
+function formatAIResponse(text) {
+  let safe = String(text || "");
+  safe = safe.replace(/\&/g, "\&amp;").replace(/</g, "\&lt;").replace(/>/g, "\&gt;");
+  safe = safe.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+  safe = safe.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  safe = safe.replace(/\n/g, "<br>");
+  return safe;
+}
 window.onDealReconAIResult = function(text) {
     if (window.aiDealMode) {
         const box = document.getElementById("aiDealResult");
-        if (box) box.innerText = text;
+        if (box) box.innerHTML = formatAIResponse(text);
         window.aiDealMode = false;
     } else {
         alert("Deal Recon AI:\n\n" + text);
