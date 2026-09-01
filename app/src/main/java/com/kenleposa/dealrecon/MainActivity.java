@@ -23,6 +23,7 @@ import com.google.firebase.ai.type.GenerateContentResponse;
 import com.google.firebase.ai.type.GenerativeBackend;
 public class MainActivity extends Activity {
 private GenerativeModelFutures aiModel;
+private GenerativeModelFutures aiFallbackModel;
     private WebView webView;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -39,6 +40,8 @@ private GenerativeModelFutures aiModel;
 GenerativeModel model = FirebaseAI.getInstance(GenerativeBackend.googleAI())
         .generativeModel("gemini-3.7-flash");
 aiModel = GenerativeModelFutures.from(model);
+GenerativeModel fallbackModel = FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.6-flash");
+aiFallbackModel = GenerativeModelFutures.from(fallbackModel);
 
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -93,10 +96,23 @@ GenerateContentResponse response = future.get();
 String text = response.getText();
 sendAIResult(text);
 } catch (Exception e) {
-sendAIError(e.getMessage());
+retryWithFallback(content);
 }
 }, MoreExecutors.directExecutor());
 }
+}
+
+private void retryWithFallback(Content content) {
+    ListenableFuture<GenerateContentResponse> fallbackFuture = aiFallbackModel.generateContent(content);
+    fallbackFuture.addListener(() -> {
+        try {
+            GenerateContentResponse response = fallbackFuture.get();
+            String text = response.getText();
+            sendAIResult(text);
+        } catch (Exception e) {
+            sendAIError(e.getMessage());
+        }
+    }, MoreExecutors.directExecutor());
 }
 
 private void sendAIResult(String text) {
