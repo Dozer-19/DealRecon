@@ -38,9 +38,9 @@ private GenerativeModelFutures aiFallbackModel;
 
 
 GenerativeModel model = FirebaseAI.getInstance(GenerativeBackend.googleAI())
-        .generativeModel("gemini-3.7-flash");
+        .generativeModel("gemini-3.6-flash");
 aiModel = GenerativeModelFutures.from(model);
-GenerativeModel fallbackModel = FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.6-flash");
+GenerativeModel fallbackModel = FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");
 aiFallbackModel = GenerativeModelFutures.from(fallbackModel);
 
         WebSettings s = webView.getSettings();
