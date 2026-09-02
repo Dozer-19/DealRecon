@@ -31,7 +31,14 @@ jobs:
           wget -q https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
           unzip -q gradle-8.11.1-bin.zip
 
+      - name: Restore signing keystore
+        run: echo "${{ secrets.DEALRECON_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/dealrecon-release.keystore"
+
       - name: Build APK
+        env:
+          DEALRECON_KEYSTORE_PATH: ${{ runner.temp }}/dealrecon-release.keystore
+          DEALRECON_KEYSTORE_PASSWORD: ${{ secrets.DEALRECON_KEYSTORE_PASSWORD }}
+          DEALRECON_KEY_ALIAS: ${{ secrets.DEALRECON_KEY_ALIAS }}
         run: ./gradle-8.11.1/bin/gradle assembleDebug --no-daemon --console=plain
 
       - name: Upload APK
