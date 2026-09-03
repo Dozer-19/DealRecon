@@ -10,6 +10,12 @@ function formatAIResponse(text) {
   return safe;
 }
 window.onDealReconAIResult = function(text) {
+    if (window.aiMode === "lead") {
+        const box = document.getElementById("aiLeadResult");
+        if (box) box.innerHTML = formatAIResponse(text);
+        window.aiMode = null;
+        return;
+    }
     if (window.aiDealMode) {
         const box = document.getElementById("aiDealResult");
         if (box) box.innerHTML = formatAIResponse(text);
@@ -20,6 +26,12 @@ window.onDealReconAIResult = function(text) {
 };
 
 window.onDealReconAIError = function(message) {
+    if (window.aiMode === "lead") {
+        const box = document.getElementById("aiLeadResult");
+        if (box) box.innerText = "AI Error:\n\n" + message;
+        window.aiMode = null;
+        return;
+    }
     if (window.aiDealMode) {
         const box = document.getElementById("aiDealResult");
         if (box) box.innerText = "AI Error:\n\n" + message;
