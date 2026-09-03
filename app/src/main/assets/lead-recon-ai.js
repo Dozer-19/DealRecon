@@ -60,3 +60,20 @@ Do not recommend outreach that ignores DNC, consent, or applicable contact rules
         window.aiMode = null;
     }
 };
+window.openLeadFinder = function() {
+    const box = document.getElementById("leadFinderResult");
+    if (!box) return;
+    box.innerHTML = `<strong>Lead Recon Finder</strong><br><br><label>Area</label><br><input id="finderArea" placeholder="City, ZIP, or County"><br><br><label>Property Type</label><br><select id="finderPropertyType"><option>Any</option><option>Single Family</option><option>2-4 Units</option><option>5-20 Units</option><option>Mixed Use</option></select><br><br><label>Lead Type</label><br><select id="finderLeadType"><option>Absentee Owner</option><option>Tired Landlord</option><option>Long-Term Owner</option><option>High Equity</option><option>Multifamily Owner</option><option>Vacant / Distress</option><option>FSBO</option><option>Expired Listing</option><option>Driving for Dollars</option></select><br><br><button class="btn" onclick="runLeadFinderSearch()">Search Free Sources</button> <label class="btn alt">Import Public Records CSV<input id="leadSourceCsv" type="file" accept=".csv" hidden onchange="importLeadSourceCSV(event)"></label><div id="leadFinderSearchResult" style="margin-top:12px"></div>`;
+};
+window.runLeadFinderSearch = function() {
+    const area = document.getElementById("finderArea")?.value || "";
+    const propertyType = document.getElementById("finderPropertyType")?.value || "Any";
+    const leadType = document.getElementById("finderLeadType")?.value || "";
+    const box = document.getElementById("leadFinderSearchResult");
+    if (!box) return;
+    if (!area.trim()) {
+        box.innerHTML = "<strong>Enter a city, ZIP, or county first.</strong>";
+        return;
+    }
+    box.innerHTML = "<strong>Search ready.</strong><br><br>Area: " + area + "<br>Property Type: " + propertyType + "<br>Lead Type: " + leadType + "<br><br>Next: connect free/public lead sources and import matching properties.";
+};
