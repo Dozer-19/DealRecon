@@ -1,8 +1,11 @@
 function formatAIResponse(text) {
   let safe = String(text || "");
-  safe = safe.replace(/\&/g, "\&amp;").replace(/</g, "\&lt;").replace(/>/g, "\&gt;");
+  safe = safe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   safe = safe.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+  safe = safe.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+  safe = safe.replace(/^# (.+)$/gm, "<h1>$1</h1>");
   safe = safe.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  safe = safe.replace(/^[-*] (.+)$/gm, "• $1");
   safe = safe.replace(/\n/g, "<br>");
   return safe;
 }
@@ -26,13 +29,6 @@ window.onDealReconAIError = function(message) {
     }
 };
 
-window.testDealReconAI = function() {
-    if (window.DealReconAI) {
-        DealReconAI.ask("Reply with exactly: Deal Recon AI is working.");
-    } else {
-        alert("Deal Recon AI bridge is not available.");
-    }
-};
 window.runAIDealAnalysis = function() {
     const v = id => document.getElementById(id)?.value || "";
     const t = id => document.getElementById(id)?.innerText || "";
@@ -91,7 +87,7 @@ Do not invent missing facts. Clearly identify assumptions.
 `;
 
     const box = document.getElementById("aiDealResult");
-    if (box) box.innerText = "Analyzing deal...";
+    if (box) box.innerText = "Deal Recon AI is analyzing this deal...";
 
     window.aiDealMode = true;
 
