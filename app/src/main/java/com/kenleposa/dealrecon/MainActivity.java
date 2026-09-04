@@ -2,6 +2,9 @@ package com.kenleposa.dealrecon;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+import android.webkit.ValueCallback;
 import android.webkit.JavascriptInterface;
 import android.os.Bundle;
 import android.webkit.WebChromeClient;
@@ -25,6 +28,7 @@ public class MainActivity extends Activity {
 private GenerativeModelFutures aiModel;
 private GenerativeModelFutures aiFallbackModel;
     private WebView webView;
+    private ValueCallback<Uri[]> filePathCallback;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -54,7 +58,18 @@ aiFallbackModel = GenerativeModelFutures.from(fallbackModel);
         s.setUseWideViewPort(true);
 webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
         webView.setWebViewClient(new WebViewClient());
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
+                if (MainActivity.this.filePathCallback != null) {
+                    MainActivity.this.filePathCallback.onReceiveValue(null);
+                }
+                MainActivity.this.filePathCallback = filePathCallback;
+                Intent intent = fileChooserParams.createIntent();
+                startActivityForResult(intent, 1001);
+                return true;
+            }
+        });
         webView.loadUrl("file:///android_asset/index.html");
 
         if (android.os.Build.VERSION.SDK_INT >= 33) {
@@ -64,6 +79,19 @@ webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
                     if (webView.canGoBack()) webView.goBack(); else finish();
                 }
             );
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 1001 && filePathCallback != null) {
+            Uri[] results = null;
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                results = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+            }
+            filePathCallback.onReceiveValue(results);
+            filePathCallback = null;
         }
     }
 
