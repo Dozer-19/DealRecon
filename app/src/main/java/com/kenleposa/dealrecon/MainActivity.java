@@ -66,6 +66,7 @@ webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
                 }
                 MainActivity.this.filePathCallback = filePathCallback;
                 Intent intent = fileChooserParams.createIntent();
+                intent.setType("*/*");
                 startActivityForResult(intent, 1001);
                 return true;
             }
