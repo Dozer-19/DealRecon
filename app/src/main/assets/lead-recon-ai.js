@@ -75,5 +75,6 @@ window.runLeadFinderSearch = function() {
         box.innerHTML = "<strong>Enter a city, ZIP, or county first.</strong>";
         return;
     }
-    box.innerHTML = "<strong>Search ready.</strong><br><br>Area: " + area + "<br>Property Type: " + propertyType + "<br>Lead Type: " + leadType + "<br><br>Next: connect free/public lead sources and import matching properties.";
+    const source = window.getFreeLeadSourceInfo ? window.getFreeLeadSourceInfo(area) : null;
+    box.innerHTML = "<strong>" + (source ? source.name : "Public Records Search") + "</strong><br><br>Area: " + area + "<br>Property Type: " + propertyType + "<br>Lead Type: " + leadType + "<br>Source: " + (source ? source.method : "Free public records") + "<br><br>" + (source ? source.note : "Use free public data where available.");
 };

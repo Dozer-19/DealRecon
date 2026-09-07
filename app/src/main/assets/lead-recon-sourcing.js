@@ -42,3 +42,26 @@ window.importLeadSourceCSV = function(event) {
     };
     reader.readAsText(file);
 };
+
+window.getFreeLeadSourceInfo = function(area) {
+    const a = String(area || "").toLowerCase();
+
+    if (a.includes("nj") || a.includes("new jersey") ||
+        a.includes("camden") || a.includes("gloucester") ||
+        a.includes("salem") || a.includes("cumberland") ||
+        a.includes("burlington") || a.includes("atlantic") ||
+        a.includes("cape may") || a.includes("mercer") ||
+        a.includes("ocean")) {
+        return {
+            name: "New Jersey Public Property Data",
+            method: "Official NJ MOD-IV / parcel data",
+            note: "Use official public property and assessment files, then import matching records into Lead Recon. Owner names may be restricted or redacted in some state-hosted datasets."
+        };
+    }
+
+    return {
+        name: "Public Records Search",
+        method: "County / municipal public property records",
+        note: "Lead Recon will use free public sources where available and import only data you are authorized to use."
+    };
+};
