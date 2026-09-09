@@ -123,7 +123,9 @@ window.scoreNJCandidate = function(c) {
     let score = 0;
     score += Math.min(20, Math.max(0, Number(c.yearsOwned) || 0));
     if (c.absentee === "Yes") score += 20;
-    if (window.isNJMultifamily(c)) score += 10;
+    const mfConfidence = window.njMultifamilyConfidence(c);
+    if (mfConfidence === "Strong") score += 15;
+    else if (mfConfidence === "Possible") score += 5;
     return Math.min(100, Math.round(score));
 };
 
@@ -138,7 +140,7 @@ window.isNJMultifamily = function(c) {
 
 window.buildNJCandidates = function(data) {
     const features = Array.isArray(data && data.features) ? data.features : [];
-    return features.map(f => window.normalizeNJLead(f.attributes || {})).map(c => ({...c, score: window.scoreNJCandidate(c), multifamily: window.isNJMultifamily(c)})).sort((a,b) => b.score - a.score);
+    return features.map(f => window.normalizeNJLead(f.attributes || {})).map(c => ({...c, score: window.scoreNJCandidate(c), multifamily: window.isNJMultifamily(c), multifamilyConfidence: window.njMultifamilyConfidence(c)})).sort((a,b) => b.score - a.score);
 };
 
 window.njMoney = function(v) {
@@ -148,5 +150,14 @@ window.njMoney = function(v) {
 
 window.renderNJCandidate = function(c) {
     const units = Number(c.dwellUnits || c.commercialDwellUnits || 0);
-    return `<div class="notice" style="margin:10px 0"><strong>${c.propertyAddress || "Unknown Address"}</strong><br>Score: ${c.score || 0} • ${c.multifamily ? "Multifamily" : "Property"}${units ? " • " + units + " Units" : ""}<br>${c.yearsOwned ? c.yearsOwned + " Years Owned • " : ""}Possible Absentee: ${c.absentee || "Unknown"}<br>Assessed Value: ${window.njMoney(c.assessedValue)} • Last Tax: ${window.njMoney(c.lastYearTax)}</div>`;
+    return `<div class="notice" style="margin:10px 0"><strong>${c.propertyAddress || "Unknown Address"}</strong><br>Score: ${c.score || 0} • ${window.njMultifamilyConfidence(c) === "Strong" ? "Strong Multifamily Signal" : window.njMultifamilyConfidence(c) === "Possible" ? "Possible Multifamily Signal" : "Property"}${units ? " • NJ Record: " + units + " Dwellings" : ""}<br>${c.yearsOwned ? c.yearsOwned + " Years Owned • " : ""}Possible Absentee: ${c.absentee || "Unknown"}<br>Assessed Value: ${window.njMoney(c.assessedValue)} • Last Tax: ${window.njMoney(c.lastYearTax)}</div>`;
+};
+
+window.njMultifamilyConfidence = function(c) {
+    const units = Number(c.dwellUnits || 0);
+    const commercialUnits = Number(c.commercialDwellUnits || 0);
+    const propertyClass = String(c.propertyClass || "").toUpperCase();
+    if (propertyClass === "4C" || commercialUnits >= 2) return "Strong";
+    if (units >= 2 && units <= 4) return "Possible";
+    return "None";
 };
