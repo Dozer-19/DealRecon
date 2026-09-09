@@ -78,10 +78,14 @@ window.runLeadFinderSearch = function() {
     const source = window.getFreeLeadSourceInfo ? window.getFreeLeadSourceInfo(area) : null;
     box.innerHTML = "<strong>Searching NJ public records...</strong>";
     const safeArea = area.trim().replace(/'/g, "''");
-    window.searchNJParcels("MUN_NAME LIKE '" + safeArea.toUpperCase() + "%'")
+    let whereClause = "MUN_NAME LIKE '" + safeArea.toUpperCase() + "%'";
+    if (leadType === "Multifamily Owner") whereClause += " AND (DWELL BETWEEN 2 AND 4 OR PROP_CLASS='4C' OR COMM_DWELL >= 2)";
+    window.searchNJParcels(whereClause)
         .then(data => {
-            const count = Array.isArray(data.features) ? data.features.length : 0;
-            box.innerHTML = "<strong>" + (source ? source.name : "NJ Public Records") + "</strong><br><br>Area: " + area + "<br>Property Type: " + propertyType + "<br>Lead Type: " + leadType + "<br><br>Found " + count + " public property records.";
+            const candidates = window.buildNJCandidates(data);
+            const count = candidates.length;
+            const cards = candidates.slice(0,25).map(window.renderNJCandidate).join("");
+            box.innerHTML = "<strong>" + (source ? source.name : "NJ Public Records") + "</strong><br><br>Area: " + area + "<br>Property Type: " + propertyType + "<br>Lead Type: " + leadType + "<br><br><strong>Found " + count + " candidates.</strong>" + cards;
         })
         .catch(err => {
             box.innerHTML = "<strong>Search failed.</strong><br><br>" + err.message;

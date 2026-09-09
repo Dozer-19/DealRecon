@@ -79,7 +79,7 @@ window.NJ_PARCEL_API = "https://maps.nj.gov/arcgis/rest/services/Applications/NJ
 window.searchNJParcels = async function(whereClause) {
     const params = new URLSearchParams({
         where: whereClause,
-        outFields: "PAMS_PIN,MUN_NAME,COUNTY,PROP_LOC,ST_ADDRESS,CITY_STATE,ZIP_CODE,PROP_CLASS,NET_VALUE,LAST_YR_TX,DEED_DATE,SALE_PRICE,DEED_BOOK,DEED_PAGE",
+        outFields: "PAMS_PIN,MUN_NAME,COUNTY,PROP_LOC,ST_ADDRESS,CITY_STATE,ZIP_CODE,PROP_CLASS,PROP_USE,DWELL,COMM_DWELL,NET_VALUE,LAST_YR_TX,DEED_DATE,SALE_PRICE,DEED_BOOK,DEED_PAGE",
         returnGeometry: "false",
         resultRecordCount: "100",
         f: "json"
@@ -87,4 +87,66 @@ window.searchNJParcels = async function(whereClause) {
     const r = await fetch(window.NJ_PARCEL_API + "?" + params.toString());
     if (!r.ok) throw new Error("NJ public records request failed");
     return await r.json();
+};
+
+window.njPossibleAbsentee = function(a) {
+    const prop = String(a.PROP_LOC || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const mail = String(a.ST_ADDRESS || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!prop || !mail) return "Unknown";
+    return prop === mail ? "No" : "Yes";
+};
+
+window.normalizeNJLead = function(a) {
+    return {
+        parcelId: a.PAMS_PIN || "",
+        propertyAddress: a.PROP_LOC || "",
+        municipality: a.MUN_NAME || "",
+        county: a.COUNTY || "",
+        mailingAddress: [a.ST_ADDRESS, a.CITY_STATE, a.ZIP_CODE].filter(Boolean).join(", "),
+        propertyClass: a.PROP_CLASS || "",
+        propertyUse: a.PROP_USE || "",
+        dwellUnits: Number(a.DWELL || 0),
+        commercialDwellUnits: Number(a.COMM_DWELL || 0),
+        assessedValue: Number(a.NET_VALUE || 0),
+        lastYearTax: Number(a.LAST_YR_TX || 0),
+        deedDate: a.DEED_DATE || "",
+        yearsOwned: window.njYearsOwned(a.DEED_DATE),
+        salePrice: Number(a.SALE_PRICE || 0),
+        deedBook: a.DEED_BOOK || "",
+        deedPage: a.DEED_PAGE || "",
+        absentee: window.njPossibleAbsentee(a),
+        source: "NJ Public Property Data"
+    };
+};
+
+window.scoreNJCandidate = function(c) {
+    let score = 0;
+    score += Math.min(20, Math.max(0, Number(c.yearsOwned) || 0));
+    if (c.absentee === "Yes") score += 20;
+    if (window.isNJMultifamily(c)) score += 10;
+    return Math.min(100, Math.round(score));
+};
+
+window.isNJMultifamily = function(c) {
+    const units = Number(c.dwellUnits || 0);
+    const commercialUnits = Number(c.commercialDwellUnits || 0);
+    if (units >= 2 && units <= 4) return true;
+    if (String(c.propertyClass || "").toUpperCase() === "4C") return true;
+    if (commercialUnits >= 2) return true;
+    return false;
+};
+
+window.buildNJCandidates = function(data) {
+    const features = Array.isArray(data && data.features) ? data.features : [];
+    return features.map(f => window.normalizeNJLead(f.attributes || {})).map(c => ({...c, score: window.scoreNJCandidate(c), multifamily: window.isNJMultifamily(c)})).sort((a,b) => b.score - a.score);
+};
+
+window.njMoney = function(v) {
+    const n = Number(v || 0);
+    return n ? "$" + n.toLocaleString("en-US") : "—";
+};
+
+window.renderNJCandidate = function(c) {
+    const units = Number(c.dwellUnits || c.commercialDwellUnits || 0);
+    return `<div class="notice" style="margin:10px 0"><strong>${c.propertyAddress || "Unknown Address"}</strong><br>Score: ${c.score || 0} • ${c.multifamily ? "Multifamily" : "Property"}${units ? " • " + units + " Units" : ""}<br>${c.yearsOwned ? c.yearsOwned + " Years Owned • " : ""}Possible Absentee: ${c.absentee || "Unknown"}<br>Assessed Value: ${window.njMoney(c.assessedValue)} • Last Tax: ${window.njMoney(c.lastYearTax)}</div>`;
 };
