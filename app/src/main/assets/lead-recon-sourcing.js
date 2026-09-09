@@ -65,3 +65,26 @@ window.getFreeLeadSourceInfo = function(area) {
         note: "Lead Recon will use free public sources where available and import only data you are authorized to use."
     };
 };
+
+window.njYearsOwned = function(v) {
+    const s = String(v || "").trim();
+    if (!/^\d{6}$/.test(s)) return 0;
+    const yy = Number(s.slice(0,2));
+    const year = yy <= (new Date().getFullYear() % 100) ? 2000 + yy : 1900 + yy;
+    return Math.max(0, new Date().getFullYear() - year);
+};
+
+window.NJ_PARCEL_API = "https://maps.nj.gov/arcgis/rest/services/Applications/NJ_TaxListSearch/MapServer/2/query";
+
+window.searchNJParcels = async function(whereClause) {
+    const params = new URLSearchParams({
+        where: whereClause,
+        outFields: "PAMS_PIN,MUN_NAME,COUNTY,PROP_LOC,ST_ADDRESS,CITY_STATE,ZIP_CODE,PROP_CLASS,NET_VALUE,LAST_YR_TX,DEED_DATE,SALE_PRICE,DEED_BOOK,DEED_PAGE",
+        returnGeometry: "false",
+        resultRecordCount: "100",
+        f: "json"
+    });
+    const r = await fetch(window.NJ_PARCEL_API + "?" + params.toString());
+    if (!r.ok) throw new Error("NJ public records request failed");
+    return await r.json();
+};

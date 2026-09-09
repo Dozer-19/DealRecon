@@ -76,5 +76,14 @@ window.runLeadFinderSearch = function() {
         return;
     }
     const source = window.getFreeLeadSourceInfo ? window.getFreeLeadSourceInfo(area) : null;
-    box.innerHTML = "<strong>" + (source ? source.name : "Public Records Search") + "</strong><br><br>Area: " + area + "<br>Property Type: " + propertyType + "<br>Lead Type: " + leadType + "<br>Source: " + (source ? source.method : "Free public records") + "<br><br>" + (source ? source.note : "Use free public data where available.");
+    box.innerHTML = "<strong>Searching NJ public records...</strong>";
+    const safeArea = area.trim().replace(/'/g, "''");
+    window.searchNJParcels("MUN_NAME LIKE '" + safeArea.toUpperCase() + "%'")
+        .then(data => {
+            const count = Array.isArray(data.features) ? data.features.length : 0;
+            box.innerHTML = "<strong>" + (source ? source.name : "NJ Public Records") + "</strong><br><br>Area: " + area + "<br>Property Type: " + propertyType + "<br>Lead Type: " + leadType + "<br><br>Found " + count + " public property records.";
+        })
+        .catch(err => {
+            box.innerHTML = "<strong>Search failed.</strong><br><br>" + err.message;
+        });
 };
