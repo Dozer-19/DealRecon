@@ -77,28 +77,103 @@ window.njYearsOwned = function(v) {
 window.NJ_PARCEL_API = "https://maps.nj.gov/arcgis/rest/services/Applications/NJ_TaxListSearch/MapServer/2/query";
 
 window.searchNJParcels = async function(whereClause) {
-    const params = new URLSearchParams({
-        where: whereClause,
-        outFields: "PAMS_PIN,MUN_NAME,COUNTY,PROP_LOC,ST_ADDRESS,CITY_STATE,ZIP_CODE,PROP_CLASS,PROP_USE,DWELL,COMM_DWELL,NET_VALUE,LAST_YR_TX,DEED_DATE,SALE_PRICE,DEED_BOOK,DEED_PAGE",
-        returnGeometry: "false",
-        resultRecordCount: "100",
-        f: "json"
-    });
-    const r = await fetch(window.NJ_PARCEL_API + "?" + params.toString());
-    if (!r.ok) throw new Error("NJ public records request failed");
-    return await r.json();
+    const allFeatures = [];
+    const pageSize = 1000;
+    let offset = 0;
+    let keepGoing = true;
+
+    while (keepGoing) {
+        const params = new URLSearchParams({
+            where: whereClause,
+            outFields: "PAMS_PIN,OWNER_NAME,MUN_NAME,COUNTY,PROP_LOC,ST_ADDRESS,CITY_STATE,ZIP_CODE,PROP_CLASS,PROP_USE,DWELL,COMM_DWELL,NET_VALUE,LAST_YR_TX,DEED_DATE,SALE_PRICE,DEED_BOOK,DEED_PAGE",
+            returnGeometry: "false",
+            resultOffset: String(offset),
+            resultRecordCount: String(pageSize),
+            orderByFields: "PAMS_PIN ASC",
+            f: "json"
+        });
+
+        const r = await fetch(window.NJ_PARCEL_API + "?" + params.toString());
+
+        if (!r.ok) {
+            throw new Error("NJ public records request failed");
+        }
+
+        const data = await r.json();
+
+        if (data.error) {
+            throw new Error(data.error.message || "NJ public records query error");
+        }
+
+        const features = Array.isArray(data.features) ? data.features : [];
+        allFeatures.push(...features);
+
+        if (features.length < pageSize || !data.exceededTransferLimit) {
+            keepGoing = false;
+        } else {
+            offset += pageSize;
+        }
+
+        if (offset >= 10000) {
+            keepGoing = false;
+        }
+    }
+
+    return {
+        features: allFeatures
+    };
+};
+
+window.normalizeNJAddress = function(v) {
+    return String(v || "")
+        .toUpperCase()
+        .replace(/\bSTREET\b/g, "ST")
+        .replace(/\bAVENUE\b/g, "AVE")
+        .replace(/\bROAD\b/g, "RD")
+        .replace(/\bDRIVE\b/g, "DR")
+        .replace(/\bLANE\b/g, "LN")
+        .replace(/\bCOURT\b/g, "CT")
+        .replace(/\bBOULEVARD\b/g, "BLVD")
+        .replace(/\bPLACE\b/g, "PL")
+        .replace(/\bHIGHWAY\b/g, "HWY")
+        .replace(/\bPARKWAY\b/g, "PKWY")
+        .replace(/\bNORTH\b/g, "N")
+        .replace(/\bSOUTH\b/g, "S")
+        .replace(/\bEAST\b/g, "E")
+        .replace(/\bWEST\b/g, "W")
+        .replace(/\b(APT|UNIT|SUITE|STE)\s*[A-Z0-9-]+\b/g, "")
+        .replace(/[^A-Z0-9]/g, "");
 };
 
 window.njPossibleAbsentee = function(a) {
-    const prop = String(a.PROP_LOC || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-    const mail = String(a.ST_ADDRESS || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const prop = window.normalizeNJAddress(a.PROP_LOC);
+    const mail = window.normalizeNJAddress(a.ST_ADDRESS);
+
     if (!prop || !mail) return "Unknown";
-    return prop === mail ? "No" : "Yes";
+
+    if (prop === mail) return "No";
+
+    const propNumber = String(a.PROP_LOC || "").match(/^\s*(\d+[A-Z]?)/i);
+    const mailNumber = String(a.ST_ADDRESS || "").match(/^\s*(\d+[A-Z]?)/i);
+
+    if (
+        propNumber &&
+        mailNumber &&
+        propNumber[1].toUpperCase() === mailNumber[1].toUpperCase()
+    ) {
+        const propStreet = prop.replace(/^\d+[A-Z]?/, "");
+        const mailStreet = mail.replace(/^\d+[A-Z]?/, "");
+
+        if (propStreet === mailStreet) return "No";
+    }
+
+    return "Yes";
 };
 
 window.normalizeNJLead = function(a) {
     return {
         parcelId: a.PAMS_PIN || "",
+        ownerName: a.OWNER_NAME || "",
         propertyAddress: a.PROP_LOC || "",
         municipality: a.MUN_NAME || "",
         county: a.COUNTY || "",
@@ -119,13 +194,69 @@ window.normalizeNJLead = function(a) {
     };
 };
 
+window.njEquitySignal = function(c) {
+    const years = Number(c.yearsOwned || 0);
+    const salePrice = Number(c.salePrice || 0);
+    const assessed = Number(c.assessedValue || 0);
+
+    // This is a lead-prioritization signal only.
+    // It is NOT actual calculated equity because mortgage balances are unavailable.
+
+    if (years >= 20) return "Strong";
+
+    if (
+        years >= 10 &&
+        salePrice > 0 &&
+        assessed > 0 &&
+        assessed >= salePrice * 1.25
+    ) {
+        return "Strong";
+    }
+
+    if (years >= 10) return "Possible";
+
+    if (
+        years >= 5 &&
+        salePrice > 0 &&
+        assessed > 0 &&
+        assessed >= salePrice * 1.5
+    ) {
+        return "Possible";
+    }
+
+    return "None";
+};
+
 window.scoreNJCandidate = function(c) {
     let score = 0;
-    score += Math.min(20, Math.max(0, Number(c.yearsOwned) || 0));
-    if (c.absentee === "Yes") score += 20;
+
+    const years = Number(c.yearsOwned || 0);
     const mfConfidence = window.njMultifamilyConfidence(c);
+    const equitySignal = window.njEquitySignal(c);
+
+    // Ownership longevity
+    score += Math.min(20, Math.max(0, years));
+
+    // Absentee-owner signal
+    if (c.absentee === "Yes") score += 20;
+
+    // Multifamily / landlord signal
     if (mfConfidence === "Strong") score += 15;
     else if (mfConfidence === "Possible") score += 5;
+
+    // Estimated equity signal
+    if (equitySignal === "Strong") score += 15;
+    else if (equitySignal === "Possible") score += 7;
+
+    // Tired-landlord combination bonus
+    if (
+        c.absentee === "Yes" &&
+        years >= 10 &&
+        (mfConfidence === "Strong" || mfConfidence === "Possible")
+    ) {
+        score += 15;
+    }
+
     return Math.min(100, Math.round(score));
 };
 
@@ -140,7 +271,13 @@ window.isNJMultifamily = function(c) {
 
 window.buildNJCandidates = function(data) {
     const features = Array.isArray(data && data.features) ? data.features : [];
-    return features.map(f => window.normalizeNJLead(f.attributes || {})).map(c => ({...c, score: window.scoreNJCandidate(c), multifamily: window.isNJMultifamily(c), multifamilyConfidence: window.njMultifamilyConfidence(c)})).sort((a,b) => b.score - a.score);
+    return features.map(f => window.normalizeNJLead(f.attributes || {})).map(c => ({
+        ...c,
+        score: window.scoreNJCandidate(c),
+        multifamily: window.isNJMultifamily(c),
+        multifamilyConfidence: window.njMultifamilyConfidence(c),
+        equitySignal: window.njEquitySignal(c)
+    })).sort((a,b) => b.score - a.score);
 };
 
 window.njMoney = function(v) {
@@ -150,7 +287,18 @@ window.njMoney = function(v) {
 
 window.renderNJCandidate = function(c) {
     const units = Number(c.dwellUnits || c.commercialDwellUnits || 0);
-    return `<div class="notice" style="margin:10px 0"><strong>${c.propertyAddress || "Unknown Address"}</strong><br>Score: ${c.score || 0} • ${window.njMultifamilyConfidence(c) === "Strong" ? "Strong Multifamily Signal" : window.njMultifamilyConfidence(c) === "Possible" ? "Possible Multifamily Signal" : "Property"}${units ? " • NJ Record: " + units + " Dwellings" : ""}<br>${c.yearsOwned ? c.yearsOwned + " Years Owned • " : ""}Possible Absentee: ${c.absentee || "Unknown"}<br>Assessed Value: ${window.njMoney(c.assessedValue)} • Last Tax: ${window.njMoney(c.lastYearTax)}</div>`;
+    const owner = c.ownerName || "Not available from NJ public dataset";
+    const parcel = encodeURIComponent(c.parcelId || "");
+
+    return `<div class="notice" style="margin:10px 0">
+        <strong>${c.propertyAddress || "Unknown Address"}</strong><br>
+        Owner: ${owner}<br>
+        Score: ${c.score || 0} • ${window.njMultifamilyConfidence(c) === "Strong" ? "Strong Multifamily Signal" : window.njMultifamilyConfidence(c) === "Possible" ? "Possible Multifamily Signal" : "Property"}${units ? " • NJ Record: " + units + " Dwellings" : ""}<br>
+        ${c.yearsOwned ? c.yearsOwned + " Years Owned • " : ""}Possible Absentee: ${c.absentee || "Unknown"}<br>
+        Equity Signal: ${c.equitySignal || "None"} <small>(estimate only)</small><br>
+        Assessed Value: ${window.njMoney(c.assessedValue)} • Last Tax: ${window.njMoney(c.lastYearTax)}<br><br>
+        <button class="btn" onclick="saveLeadReconCandidate('${parcel}')">Save Lead</button>
+    </div>`;
 };
 
 window.njMultifamilyConfidence = function(c) {
