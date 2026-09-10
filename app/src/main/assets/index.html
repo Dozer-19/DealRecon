@@ -222,10 +222,8 @@ function researchOwner(id){
     let o=owners.find(x=>x.id===id);
     if(!o)return;
 
-    window.open(
-        'https://i2e.uslandrecords.com/NJ/Gloucester/D/Default.aspx',
-        '_blank'
-    );
+    window.location.href =
+        'https://i2e.uslandrecords.com/NJ/Gloucester/D/Default.aspx';
 }
 
 function updateOwnerName(id){
