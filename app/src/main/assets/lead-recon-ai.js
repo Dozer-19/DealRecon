@@ -179,6 +179,122 @@ window.loadMoreLeadReconResults = function() {
 };
 
 
+
+window.sendLeadReconCandidateToOwner = function(encodedParcelId) {
+    const parcelId = decodeURIComponent(encodedParcelId || "");
+    const results = Array.isArray(window.leadReconFinderResults)
+        ? window.leadReconFinderResults
+        : [];
+
+    const c = results.find(x =>
+        String(x.parcelId || "") === String(parcelId)
+    );
+
+    if (!c) {
+        alert("Property could not be found.");
+        return;
+    }
+
+    const owners = get("owners");
+
+    const normalizeProp = v => String(v || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
+
+    const duplicate = owners.some(o => {
+        const sameParcel =
+            String(o.parcelId || "").trim() &&
+            String(c.parcelId || "").trim() &&
+            String(o.parcelId || "").trim() === String(c.parcelId || "").trim();
+
+        const sameAddress =
+            normalizeProp(o.prop) &&
+            normalizeProp(c.propertyAddress) &&
+            normalizeProp(o.prop) === normalizeProp(c.propertyAddress);
+
+        return sameParcel || sameAddress;
+    });
+
+    if (duplicate) {
+        alert("This property is already in Owner Recon.");
+        go("owner");
+        return;
+    }
+
+    const units = Number(
+        c.dwellUnits ||
+        c.commercialDwellUnits ||
+        0
+    );
+
+    let propertyType = "";
+
+    if (units >= 2 && units <= 4) {
+        propertyType = units + " Unit Multifamily";
+    } else if (
+        String(c.propertyClass || "").toUpperCase() === "4C" ||
+        units >= 5
+    ) {
+        propertyType = units
+            ? units + " Unit Multifamily"
+            : "5+ Unit Multifamily";
+    } else if (
+        String(c.propertyClass || "").toUpperCase() === "4A"
+    ) {
+        propertyType = "Commercial / Mixed Use";
+    } else {
+        propertyType = c.propertyUse || c.propertyClass || "Property";
+    }
+
+    const currentYear = new Date().getFullYear();
+    const yearsOwned = Number(c.yearsOwned || 0);
+    const estimatedYearAcquired =
+        yearsOwned > 0 ? currentYear - yearsOwned : 0;
+
+    const owner = {
+        id: Date.now() + Math.random(),
+        dealId: typeof currentDealId !== "undefined"
+            ? currentDealId || null
+            : null,
+        parcelId: c.parcelId || "",
+        prop: c.propertyAddress || "",
+        name: c.ownerName || "",
+        mail: c.mailingAddress || "",
+        county: [c.municipality, c.county]
+            .filter(Boolean)
+            .join(" / "),
+        assess: Number(c.assessedValue || 0),
+        type: propertyType,
+        yearAcquired: estimatedYearAcquired,
+        source: "NJ Public Property Data",
+        yearsOwned: yearsOwned,
+        equitySignal: c.equitySignal || "None",
+        absentee: c.absentee || "Unknown"
+    };
+
+    owners.unshift(owner);
+    set("owners", owners);
+    renderAll();
+
+    // Pre-fill the Owner Recon form for review/editing
+    const setField = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value ?? "";
+    };
+
+    setField("oProp", owner.prop);
+    setField("oName", owner.name);
+    setField("oMail", owner.mail);
+    setField("oCounty", owner.county);
+    setField("oAssess", owner.assess || "");
+    setField("oType", owner.type);
+    setField("oYear", owner.yearAcquired || "");
+
+    go("owner");
+
+    alert("Property sent to Owner Recon.");
+};
+
 window.saveLeadReconCandidate = function(encodedParcelId) {
     const parcelId = decodeURIComponent(encodedParcelId || "");
     const results = Array.isArray(window.leadReconFinderResults) ? window.leadReconFinderResults : [];

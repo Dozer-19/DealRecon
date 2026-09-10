@@ -298,6 +298,7 @@ window.renderNJCandidate = function(c) {
         Equity Signal: ${c.equitySignal || "None"} <small>(estimate only)</small><br>
         Assessed Value: ${window.njMoney(c.assessedValue)} • Last Tax: ${window.njMoney(c.lastYearTax)}<br><br>
         <button class="btn" onclick="saveLeadReconCandidate('${parcel}')">Save Lead</button>
+        <button class="btn alt" onclick="sendLeadReconCandidateToOwner('${parcel}')">Send to Owner Recon</button>
     </div>`;
 };
 
