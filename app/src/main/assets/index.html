@@ -222,8 +222,13 @@ function researchOwner(id){
     let o=owners.find(x=>x.id===id);
     if(!o)return;
 
-    window.location.href =
-        'https://i2e.uslandrecords.com/NJ/Gloucester/D/Default.aspx';
+    if (window.DealReconAI && window.DealReconAI.openUrl) {
+        window.DealReconAI.openUrl(
+            'https://i2e.uslandrecords.com/NJ/Gloucester/D/Default.aspx'
+        );
+    } else {
+        alert('Unable to open deed records.');
+    }
 }
 
 function updateOwnerName(id){

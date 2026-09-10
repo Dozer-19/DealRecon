@@ -127,6 +127,20 @@ webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
 
 private class DealReconAI {
     @JavascriptInterface
+    public void openUrl(String url) {
+        if (url == null || url.trim().isEmpty()) return;
+
+        runOnUiThread(() -> {
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                startActivity(intent);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    @JavascriptInterface
     public void ask(String prompt) {
 Content content = new Content.Builder().addText(prompt).build();
 ListenableFuture<GenerateContentResponse> future = aiModel.generateContent(content);
