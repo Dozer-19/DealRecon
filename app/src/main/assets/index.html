@@ -222,17 +222,6 @@ function researchOwner(id){
     let o=owners.find(x=>x.id===id);
     if(!o)return;
 
-    let details=
-        'PROPERTY:\n'+(o.prop||'Unknown')+
-        '\n\nDEED REFERENCE:'+
-        '\nBook: '+(o.deedBook||'Not available')+
-        '\nPage: '+(o.deedPage||'Not available')+
-        '\nDeed Date: '+(o.deedDate||'Not available')+
-        '\nSale Price: '+(o.salePrice?money(o.salePrice):'Not available')+
-        '\n\nUse the deed Book/Page on the Gloucester County Land Records site to identify the owner/grantee.';
-
-    alert(details);
-
     window.open(
         'https://i2e.uslandrecords.com/NJ/Gloucester/D/Default.aspx',
         '_blank'
