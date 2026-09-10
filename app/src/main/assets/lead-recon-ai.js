@@ -269,7 +269,12 @@ window.sendLeadReconCandidateToOwner = function(encodedParcelId) {
         source: "NJ Public Property Data",
         yearsOwned: yearsOwned,
         equitySignal: c.equitySignal || "None",
-        absentee: c.absentee || "Unknown"
+        absentee: c.absentee || "Unknown",
+        deedDate: c.deedDate || "",
+        deedBook: c.deedBook || "",
+        deedPage: c.deedPage || "",
+        salePrice: Number(c.salePrice || 0),
+        finderScore: Number(c.score || 0)
     };
 
     owners.unshift(owner);
