@@ -396,6 +396,15 @@ private void processCamdenSearchResults(
                     ""
                 ).trim();
 
+            /*
+             * Camden/NewVision deed index:
+             *
+             * Direct party  = Grantor / Seller
+             * Reverse party = Grantee / Buyer
+             *
+             * party_code identifies which side party_name belongs to.
+             * cross_party_name is the opposite side.
+             */
             boolean partyIsDirect =
                 !directLabel.isEmpty() &&
                 code.equalsIgnoreCase(directLabel);
@@ -404,77 +413,63 @@ private void processCamdenSearchResults(
                 !reverseLabel.isEmpty() &&
                 code.equalsIgnoreCase(reverseLabel);
 
-            boolean directMeansGrantor =
-                directLabel
-                    .toUpperCase()
-                    .contains("GRANTOR");
-
-            boolean directMeansGrantee =
-                directLabel
-                    .toUpperCase()
-                    .contains("GRANTEE");
-
-            boolean reverseMeansGrantor =
-                reverseLabel
-                    .toUpperCase()
-                    .contains("GRANTOR");
-
-            boolean reverseMeansGrantee =
-                reverseLabel
-                    .toUpperCase()
-                    .contains("GRANTEE");
-
             if (partyIsDirect) {
-                if (directMeansGrantor) {
-                    addCamdenName(
-                        grantors,
-                        partyName
-                    );
+                addCamdenName(
+                    grantors,
+                    partyName
+                );
 
-                    if (reverseMeansGrantee) {
-                        addCamdenName(
-                            grantees,
-                            crossParty
-                        );
-                    }
-                } else if (directMeansGrantee) {
-                    addCamdenName(
-                        grantees,
-                        partyName
-                    );
+                addCamdenName(
+                    grantees,
+                    crossParty
+                );
 
-                    if (reverseMeansGrantor) {
-                        addCamdenName(
-                            grantors,
-                            crossParty
-                        );
-                    }
-                }
             } else if (partyIsReverse) {
-                if (reverseMeansGrantee) {
-                    addCamdenName(
-                        grantees,
-                        partyName
-                    );
+                addCamdenName(
+                    grantees,
+                    partyName
+                );
 
-                    if (directMeansGrantor) {
-                        addCamdenName(
-                            grantors,
-                            crossParty
-                        );
-                    }
-                } else if (reverseMeansGrantor) {
+                addCamdenName(
+                    grantors,
+                    crossParty
+                );
+
+            } else {
+                /*
+                 * Some Camden rows may return the party labels differently.
+                 * If the code itself clearly identifies D/R, use that safely.
+                 */
+                String upperCode =
+                    code.toUpperCase();
+
+                if (
+                    upperCode.equals("D") ||
+                    upperCode.equals("DIRECT")
+                ) {
                     addCamdenName(
                         grantors,
                         partyName
                     );
 
-                    if (directMeansGrantee) {
-                        addCamdenName(
-                            grantees,
-                            crossParty
-                        );
-                    }
+                    addCamdenName(
+                        grantees,
+                        crossParty
+                    );
+
+                } else if (
+                    upperCode.equals("R") ||
+                    upperCode.equals("REVERSE")
+                ) {
+                    addCamdenName(
+                        grantees,
+                        partyName
+                    );
+
+                    addCamdenName(
+                        grantors,
+                        crossParty
+                    );
                 }
             }
 
