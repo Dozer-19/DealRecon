@@ -27,6 +27,20 @@ import com.google.firebase.ai.java.GenerativeModelFutures;
 import com.google.firebase.ai.type.Content;
 import com.google.firebase.ai.type.GenerateContentResponse;
 import com.google.firebase.ai.type.GenerativeBackend;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 public class MainActivity extends Activity {
 private GenerativeModelFutures aiModel;
 private GenerativeModelFutures aiFallbackModel;
@@ -190,6 +204,22 @@ private class DealReconAI {
     }
 
     @JavascriptInterface
+    public void lookupGloucesterDeed(String book, String page) {
+        new Thread(() -> {
+            try {
+                JSONObject result = performGloucesterDeedLookup(book, page);
+                sendDeedResult(result);
+            } catch (Exception e) {
+                String message = e.getMessage();
+                if (message == null || message.trim().isEmpty()) {
+                    message = "Automatic Gloucester County deed lookup failed.";
+                }
+                sendDeedError(message);
+            }
+        }).start();
+    }
+
+    @JavascriptInterface
     public void ask(String prompt) {
 Content content = new Content.Builder().addText(prompt).build();
 ListenableFuture<GenerateContentResponse> future = aiModel.generateContent(content);
@@ -203,6 +233,601 @@ retryWithFallback(content);
 }
 }, MoreExecutors.directExecutor());
 }
+}
+
+private static class DeedHttpResponse {
+    String body;
+    String url;
+
+    DeedHttpResponse(String body, String url) {
+        this.body = body;
+        this.url = url;
+    }
+}
+
+private DeedHttpResponse deedRequest(
+        String method,
+        String url,
+        Map<String,String> form,
+        Map<String,String> cookies
+) throws Exception {
+
+    String currentUrl = url;
+    String currentMethod = method;
+    Map<String,String> currentForm = form;
+
+    for (int redirect = 0; redirect < 6; redirect++) {
+
+        HttpURLConnection conn =
+            (HttpURLConnection) new URL(currentUrl).openConnection();
+
+        conn.setInstanceFollowRedirects(false);
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(20000);
+        conn.setRequestProperty(
+            "User-Agent",
+            "Mozilla/5.0 (Android) DealRecon/1.0"
+        );
+        conn.setRequestProperty(
+            "Accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        );
+
+        if (!cookies.isEmpty()) {
+            StringBuilder cookieHeader = new StringBuilder();
+
+            for (Map.Entry<String,String> entry : cookies.entrySet()) {
+                if (cookieHeader.length() > 0) {
+                    cookieHeader.append("; ");
+                }
+
+                cookieHeader
+                    .append(entry.getKey())
+                    .append("=")
+                    .append(entry.getValue());
+            }
+
+            conn.setRequestProperty("Cookie", cookieHeader.toString());
+        }
+
+        if ("POST".equals(currentMethod)) {
+            conn.setDoOutput(true);
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty(
+                "Content-Type",
+                "application/x-www-form-urlencoded"
+            );
+
+            String body = encodeDeedForm(currentForm);
+            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+
+            conn.setFixedLengthStreamingMode(bytes.length);
+
+            try (OutputStream out = conn.getOutputStream()) {
+                out.write(bytes);
+            }
+        } else {
+            conn.setRequestMethod("GET");
+        }
+
+        int status = conn.getResponseCode();
+
+        Map<String,List<String>> headers = conn.getHeaderFields();
+
+        if (headers != null) {
+            for (Map.Entry<String,List<String>> header : headers.entrySet()) {
+                if (header.getKey() == null) continue;
+
+                if ("Set-Cookie".equalsIgnoreCase(header.getKey())) {
+                    for (String rawCookie : header.getValue()) {
+                        if (rawCookie == null) continue;
+
+                        String first = rawCookie.split(";", 2)[0];
+                        int equals = first.indexOf('=');
+
+                        if (equals > 0) {
+                            String key = first.substring(0, equals).trim();
+                            String value = first.substring(equals + 1).trim();
+
+                            cookies.put(key, value);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (status >= 300 && status < 400) {
+            String location = conn.getHeaderField("Location");
+
+            if (location == null || location.trim().isEmpty()) {
+                throw new Exception(
+                    "Gloucester County returned a redirect without a destination."
+                );
+            }
+
+            currentUrl =
+                new URL(new URL(currentUrl), location).toString();
+
+            if (status == 301 || status == 302 || status == 303) {
+                currentMethod = "GET";
+                currentForm = null;
+            }
+
+            conn.disconnect();
+            continue;
+        }
+
+        BufferedReader reader;
+
+        if (status >= 400) {
+            if (conn.getErrorStream() == null) {
+                throw new Exception(
+                    "Gloucester County returned HTTP " + status + "."
+                );
+            }
+
+            reader = new BufferedReader(
+                new InputStreamReader(
+                    conn.getErrorStream(),
+                    StandardCharsets.UTF_8
+                )
+            );
+        } else {
+            reader = new BufferedReader(
+                new InputStreamReader(
+                    conn.getInputStream(),
+                    StandardCharsets.UTF_8
+                )
+            );
+        }
+
+        StringBuilder response = new StringBuilder();
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            response.append(line).append("\n");
+        }
+
+        reader.close();
+
+        String finalUrl = currentUrl;
+        conn.disconnect();
+
+        if (status >= 400) {
+            throw new Exception(
+                "Gloucester County returned HTTP " + status + "."
+            );
+        }
+
+        return new DeedHttpResponse(
+            response.toString(),
+            finalUrl
+        );
+    }
+
+    throw new Exception("Too many redirects from Gloucester County.");
+}
+
+private String encodeDeedForm(
+        Map<String,String> fields
+) throws Exception {
+
+    StringBuilder body = new StringBuilder();
+
+    for (Map.Entry<String,String> entry : fields.entrySet()) {
+        if (body.length() > 0) {
+            body.append("&");
+        }
+
+        body.append(
+            URLEncoder.encode(
+                entry.getKey(),
+                StandardCharsets.UTF_8.toString()
+            )
+        );
+
+        body.append("=");
+
+        body.append(
+            URLEncoder.encode(
+                entry.getValue() == null ? "" : entry.getValue(),
+                StandardCharsets.UTF_8.toString()
+            )
+        );
+    }
+
+    return body.toString();
+}
+
+private Map<String,String> extractDeedHiddenFields(
+        String html
+) {
+
+    Map<String,String> fields = new LinkedHashMap<>();
+
+    Pattern inputPattern = Pattern.compile(
+        "<input\\b[^>]*type=[\"']hidden[\"'][^>]*>",
+        Pattern.CASE_INSENSITIVE
+    );
+
+    Matcher inputMatcher = inputPattern.matcher(html);
+
+    while (inputMatcher.find()) {
+        String tag = inputMatcher.group();
+
+        Matcher nameMatcher = Pattern.compile(
+            "name=[\"']([^\"']+)[\"']",
+            Pattern.CASE_INSENSITIVE
+        ).matcher(tag);
+
+        if (!nameMatcher.find()) {
+            continue;
+        }
+
+        Matcher valueMatcher = Pattern.compile(
+            "value=[\"']([^\"']*)[\"']",
+            Pattern.CASE_INSENSITIVE
+        ).matcher(tag);
+
+        String name = deedHtmlDecode(nameMatcher.group(1));
+        String value = "";
+
+        if (valueMatcher.find()) {
+            value = deedHtmlDecode(valueMatcher.group(1));
+        }
+
+        fields.put(name, value);
+    }
+
+    return fields;
+}
+
+private String deedHtmlDecode(String value) {
+    if (value == null) return "";
+
+    return value
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&#x27;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&nbsp;", " ");
+}
+
+private String deedStripTags(String value) {
+    if (value == null) return "";
+
+    return deedHtmlDecode(
+        value.replaceAll("(?is)<[^>]+>", "")
+    )
+    .replaceAll("\\s+", " ")
+    .trim();
+}
+
+private String findDeedDetailTarget(
+        String resultHtml,
+        String book,
+        String page
+) {
+
+    Pattern rowPattern = Pattern.compile(
+        "(?is)<tr[^>]*>(.*?)</tr>"
+    );
+
+    Matcher rows = rowPattern.matcher(resultHtml);
+
+    String normalizedBook =
+        book.replaceFirst("^0+(?!$)", "");
+
+    String normalizedPage =
+        page.replaceFirst("^0+(?!$)", "");
+
+    String fallback = null;
+
+    while (rows.find()) {
+        String row = rows.group(1);
+
+        Matcher bookPageMatcher = Pattern.compile(
+            "(?is)href=[\"']javascript:__doPostBack\\(&#39;([^&]+ButtonRow_Book/Page_0)&#39;.*?</a>"
+        ).matcher(row);
+
+        if (!bookPageMatcher.find()) {
+            continue;
+        }
+
+        String target =
+            deedHtmlDecode(bookPageMatcher.group(1));
+
+        if (fallback == null) {
+            fallback = target;
+        }
+
+        String plain =
+            deedStripTags(row)
+                .replaceFirst("^0+(?!$)", "");
+
+        boolean isDeed =
+            plain.toUpperCase().contains("DEED");
+
+        boolean bookMatches =
+            plain.contains(normalizedBook);
+
+        boolean pageMatches =
+            plain.contains(normalizedPage);
+
+        if (isDeed && bookMatches && pageMatches) {
+            return target;
+        }
+    }
+
+    return fallback;
+}
+
+private List<String> extractDeedParties(
+        String detailHtml,
+        String partyType
+) {
+
+    List<String> parties = new ArrayList<>();
+
+    Pattern pattern = Pattern.compile(
+        "(?is)<td[^>]*>\\s*<a[^>]*>(.*?)</a>\\s*</td>\\s*<td[^>]*>\\s*" +
+        Pattern.quote(partyType) +
+        "\\s*</td>"
+    );
+
+    Matcher matcher = pattern.matcher(detailHtml);
+
+    while (matcher.find()) {
+        String name = deedStripTags(matcher.group(1));
+
+        if (!name.isEmpty() && !parties.contains(name)) {
+            parties.add(name);
+        }
+    }
+
+    return parties;
+}
+
+private String joinDeedNames(List<String> names) {
+    StringBuilder out = new StringBuilder();
+
+    for (String name : names) {
+        if (out.length() > 0) {
+            out.append(" & ");
+        }
+
+        out.append(name);
+    }
+
+    return out.toString();
+}
+
+private JSONObject performGloucesterDeedLookup(
+        String book,
+        String page
+) throws Exception {
+
+    if (book == null || page == null) {
+        throw new Exception("Missing deed book or page.");
+    }
+
+    book = book.trim();
+    page = page.trim();
+
+    if (!book.matches("\\d+") || !page.matches("\\d+")) {
+        throw new Exception(
+            "The stored Gloucester deed book/page is not valid."
+        );
+    }
+
+    String searchBook =
+        book.replaceFirst("^0+(?!$)", "");
+
+    String searchPage =
+        page.replaceFirst("^0+(?!$)", "");
+
+    final String baseUrl =
+        "https://i2e.uslandrecords.com/NJ/Gloucester/D/Default.aspx";
+
+    Map<String,String> cookies = new LinkedHashMap<>();
+
+    // --------------------------------------------------------
+    // 1. Load Gloucester County U.S. Land Records
+    // --------------------------------------------------------
+
+    DeedHttpResponse response =
+        deedRequest(
+            "GET",
+            baseUrl,
+            null,
+            cookies
+        );
+
+    // --------------------------------------------------------
+    // 2. Enter Recorded Land Volume Search
+    // --------------------------------------------------------
+
+    Map<String,String> fields =
+        extractDeedHiddenFields(response.body);
+
+    fields.put(
+        "__EVENTTARGET",
+        "Navigator1$SearchCriteria1$RLVolumeSearchLinkButton"
+    );
+
+    fields.put(
+        "__EVENTARGUMENT",
+        ""
+    );
+
+    response =
+        deedRequest(
+            "POST",
+            response.url,
+            fields,
+            cookies
+        );
+
+    // --------------------------------------------------------
+    // 3. Search the exact Book/Page
+    // --------------------------------------------------------
+
+    fields =
+        extractDeedHiddenFields(response.body);
+
+    fields.put("__EVENTTARGET", "");
+    fields.put("__EVENTARGUMENT", "");
+
+    fields.put(
+        "SearchFormEx1$ACSTextBox_Volume",
+        searchBook
+    );
+
+    fields.put(
+        "SearchFormEx1$ACSTextBox_PageNumber",
+        searchPage
+    );
+
+    fields.put(
+        "SearchFormEx1$ACSDropDownList_DocumentType",
+        "-2"
+    );
+
+    fields.put(
+        "SearchFormEx1$btnSearch",
+        "Search"
+    );
+
+    response =
+        deedRequest(
+            "POST",
+            response.url,
+            fields,
+            cookies
+        );
+
+    String detailTarget =
+        findDeedDetailTarget(
+            response.body,
+            searchBook,
+            searchPage
+        );
+
+    if (detailTarget == null) {
+        throw new Exception(
+            "No Gloucester County deed was found for Book " +
+            book + " / Page " + page + "."
+        );
+    }
+
+    // --------------------------------------------------------
+    // 4. Open deed details
+    // --------------------------------------------------------
+
+    fields =
+        extractDeedHiddenFields(response.body);
+
+    fields.put(
+        "__EVENTTARGET",
+        detailTarget
+    );
+
+    fields.put(
+        "__EVENTARGUMENT",
+        ""
+    );
+
+    response =
+        deedRequest(
+            "POST",
+            response.url,
+            fields,
+            cookies
+        );
+
+    // --------------------------------------------------------
+    // 5. Extract Grantee(s) and Grantor(s)
+    // --------------------------------------------------------
+
+    List<String> grantees =
+        extractDeedParties(
+            response.body,
+            "Grantee"
+        );
+
+    List<String> grantors =
+        extractDeedParties(
+            response.body,
+            "Grantor"
+        );
+
+    if (grantees.isEmpty()) {
+        throw new Exception(
+            "The deed was found, but Gloucester County did not return a grantee name."
+        );
+    }
+
+    JSONObject result = new JSONObject();
+
+    result.put("success", true);
+    result.put("book", book);
+    result.put("page", page);
+    result.put(
+        "ownerName",
+        joinDeedNames(grantees)
+    );
+    result.put(
+        "grantees",
+        joinDeedNames(grantees)
+    );
+    result.put(
+        "grantors",
+        joinDeedNames(grantors)
+    );
+    result.put(
+        "source",
+        "Gloucester County deed index"
+    );
+
+    return result;
+}
+
+private void sendDeedResult(JSONObject result) {
+    if (webView == null) return;
+
+    final String json =
+        result == null ? "{}" : result.toString();
+
+    webView.post(() ->
+        webView.evaluateJavascript(
+            "window.onDealReconDeedResult && " +
+            "window.onDealReconDeedResult(" +
+            JSONObject.quote(json) +
+            ");",
+            null
+        )
+    );
+}
+
+private void sendDeedError(String message) {
+    if (webView == null) return;
+
+    final String safeMessage =
+        message == null
+            ? "Automatic deed lookup failed."
+            : message;
+
+    webView.post(() ->
+        webView.evaluateJavascript(
+            "window.onDealReconDeedError && " +
+            "window.onDealReconDeedError(" +
+            JSONObject.quote(safeMessage) +
+            ");",
+            null
+        )
+    );
 }
 
 private void retryWithFallback(Content content) {
