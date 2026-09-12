@@ -3,6 +3,9 @@ package com.kenleposa.dealrecon;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.util.Base64;
 import android.net.Uri;
 import android.webkit.ValueCallback;
 import android.webkit.JavascriptInterface;
@@ -138,6 +141,52 @@ private class DealReconAI {
                 e.printStackTrace();
             }
         });
+    }
+
+    @JavascriptInterface
+    public void analyzeDeedImage(String base64Image, String prompt) {
+        try {
+            if (base64Image == null || base64Image.trim().isEmpty()) {
+                sendAIError("No deed image was received.");
+                return;
+            }
+
+            String cleanBase64 = base64Image;
+            int comma = cleanBase64.indexOf(',');
+            if (comma >= 0) {
+                cleanBase64 = cleanBase64.substring(comma + 1);
+            }
+
+            byte[] imageBytes = Base64.decode(cleanBase64, Base64.DEFAULT);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(
+                imageBytes, 0, imageBytes.length
+            );
+
+            if (bitmap == null) {
+                sendAIError("Deal Recon could not read that deed image.");
+                return;
+            }
+
+            Content content = new Content.Builder()
+                .addImage(bitmap)
+                .addText(prompt)
+                .build();
+
+            ListenableFuture<GenerateContentResponse> future =
+                aiModel.generateContent(content);
+
+            future.addListener(() -> {
+                try {
+                    GenerateContentResponse response = future.get();
+                    sendAIResult(response.getText());
+                } catch (Exception e) {
+                    retryWithFallback(content);
+                }
+            }, MoreExecutors.directExecutor());
+
+        } catch (Exception e) {
+            sendAIError(e.getMessage());
+        }
     }
 
     @JavascriptInterface
