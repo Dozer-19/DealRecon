@@ -220,6 +220,22 @@ private class DealReconAI {
     }
 
     @JavascriptInterface
+    public void lookupSalemDeed(String book, String page) {
+        new Thread(() -> {
+            try {
+                JSONObject result = performSalemDeedLookup(book, page);
+                sendDeedResult(result);
+            } catch (Exception e) {
+                String message = e.getMessage();
+                if (message == null || message.trim().isEmpty()) {
+                    message = "Automatic Salem County deed lookup failed.";
+                }
+                sendDeedError(message);
+            }
+        }).start();
+    }
+
+    @JavascriptInterface
     public void ask(String prompt) {
 Content content = new Content.Builder().addText(prompt).build();
 ListenableFuture<GenerateContentResponse> future = aiModel.generateContent(content);
@@ -824,6 +840,464 @@ private JSONObject performGloucesterDeedLookup(
     result.put(
         "source",
         "Gloucester County deed index"
+    );
+
+    return result;
+}
+
+
+private JSONObject salemJsonPost(
+        String urlString,
+        JSONObject payload
+) throws Exception {
+
+    java.net.HttpURLConnection connection = null;
+
+    try {
+        java.net.URL url =
+            new java.net.URL(urlString);
+
+        connection =
+            (java.net.HttpURLConnection)
+            url.openConnection();
+
+        connection.setRequestMethod("POST");
+        connection.setConnectTimeout(15000);
+        connection.setReadTimeout(20000);
+        connection.setDoOutput(true);
+
+        connection.setRequestProperty(
+            "User-Agent",
+            "Mozilla/5.0 (Android) DealRecon"
+        );
+
+        connection.setRequestProperty(
+            "Accept",
+            "application/json"
+        );
+
+        connection.setRequestProperty(
+            "Content-Type",
+            "application/json;charset=UTF-8"
+        );
+
+        connection.setRequestProperty(
+            "Referer",
+            "https://clerkrecordsng.salemcountynj.gov/publicsearch/"
+        );
+
+        byte[] body =
+            payload.toString().getBytes(
+                java.nio.charset.StandardCharsets.UTF_8
+            );
+
+        connection.setFixedLengthStreamingMode(body.length);
+
+        try (
+            java.io.OutputStream output =
+                connection.getOutputStream()
+        ) {
+            output.write(body);
+        }
+
+        int status =
+            connection.getResponseCode();
+
+        java.io.InputStream stream =
+            status >= 200 && status < 300
+                ? connection.getInputStream()
+                : connection.getErrorStream();
+
+        if (stream == null) {
+            throw new Exception(
+                "Salem County returned HTTP " + status + "."
+            );
+        }
+
+        StringBuilder response =
+            new StringBuilder();
+
+        try (
+            java.io.BufferedReader reader =
+                new java.io.BufferedReader(
+                    new java.io.InputStreamReader(
+                        stream,
+                        java.nio.charset.StandardCharsets.UTF_8
+                    )
+                )
+        ) {
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+        }
+
+        if (status < 200 || status >= 300) {
+            throw new Exception(
+                "Salem County returned HTTP " +
+                status +
+                ": " +
+                response
+            );
+        }
+
+        return new JSONObject(response.toString());
+
+    } finally {
+        if (connection != null) {
+            connection.disconnect();
+        }
+    }
+}
+
+private org.json.JSONArray salemJsonPostArray(
+        String urlString,
+        JSONObject payload
+) throws Exception {
+
+    java.net.HttpURLConnection connection = null;
+
+    try {
+        java.net.URL url =
+            new java.net.URL(urlString);
+
+        connection =
+            (java.net.HttpURLConnection)
+            url.openConnection();
+
+        connection.setRequestMethod("POST");
+        connection.setConnectTimeout(15000);
+        connection.setReadTimeout(20000);
+        connection.setDoOutput(true);
+
+        connection.setRequestProperty(
+            "User-Agent",
+            "Mozilla/5.0 (Android) DealRecon"
+        );
+
+        connection.setRequestProperty(
+            "Accept",
+            "application/json"
+        );
+
+        connection.setRequestProperty(
+            "Content-Type",
+            "application/json;charset=UTF-8"
+        );
+
+        connection.setRequestProperty(
+            "Referer",
+            "https://clerkrecordsng.salemcountynj.gov/publicsearch/"
+        );
+
+        byte[] body =
+            payload.toString().getBytes(
+                java.nio.charset.StandardCharsets.UTF_8
+            );
+
+        connection.setFixedLengthStreamingMode(body.length);
+
+        try (
+            java.io.OutputStream output =
+                connection.getOutputStream()
+        ) {
+            output.write(body);
+        }
+
+        int status =
+            connection.getResponseCode();
+
+        java.io.InputStream stream =
+            status >= 200 && status < 300
+                ? connection.getInputStream()
+                : connection.getErrorStream();
+
+        if (stream == null) {
+            throw new Exception(
+                "Salem County returned HTTP " + status + "."
+            );
+        }
+
+        StringBuilder response =
+            new StringBuilder();
+
+        try (
+            java.io.BufferedReader reader =
+                new java.io.BufferedReader(
+                    new java.io.InputStreamReader(
+                        stream,
+                        java.nio.charset.StandardCharsets.UTF_8
+                    )
+                )
+        ) {
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+        }
+
+        if (status < 200 || status >= 300) {
+            throw new Exception(
+                "Salem County returned HTTP " +
+                status +
+                ": " +
+                response
+            );
+        }
+
+        return new org.json.JSONArray(
+            response.toString()
+        );
+
+    } finally {
+        if (connection != null) {
+            connection.disconnect();
+        }
+    }
+}
+
+private JSONObject performSalemDeedLookup(
+        String book,
+        String page
+) throws Exception {
+
+    if (book == null || page == null) {
+        throw new Exception(
+            "Missing Salem County deed book or page."
+        );
+    }
+
+    book = book.trim();
+    page = page.trim();
+
+    if (!book.matches("\\d+") || !page.matches("\\d+")) {
+        throw new Exception(
+            "The stored Salem deed book/page is not valid."
+        );
+    }
+
+    String searchBook =
+        book.replaceFirst("^0+(?!$)", "");
+
+    String searchPage =
+        page.replaceFirst("^0+(?!$)", "");
+
+    final String base =
+        "https://clerkrecordsng.salemcountynj.gov/publicsearch/";
+
+    // -----------------------------------------------------
+    // 1. Search Salem County by Book/Page
+    // -----------------------------------------------------
+
+    JSONObject searchPayload =
+        new JSONObject();
+
+    searchPayload.put("BookType", "O");
+    searchPayload.put("Book", searchBook);
+    searchPayload.put("Page", searchPage);
+
+    org.json.JSONArray searchResults =
+        salemJsonPostArray(
+            base + "api/search",
+            searchPayload
+        );
+
+    if (searchResults.length() == 0) {
+        throw new Exception(
+            "No Salem County deed was found for Book " +
+            book + " / Page " + page + "."
+        );
+    }
+
+    long documentId = -1;
+
+    for (int i = 0; i < searchResults.length(); i++) {
+
+        JSONObject row =
+            searchResults.getJSONObject(i);
+
+        String rowBook =
+            String.valueOf(
+                row.optInt("book", -1)
+            );
+
+        String rowPage =
+            String.valueOf(
+                row.optInt("page", -1)
+            );
+
+        String type =
+            row.optString(
+                "doc_type",
+                ""
+            );
+
+        if (
+            rowBook.equals(searchBook) &&
+            rowPage.equals(searchPage) &&
+            "DEED".equalsIgnoreCase(type)
+        ) {
+            documentId =
+                row.optLong("doc_id", -1);
+
+            if (documentId > 0) {
+                break;
+            }
+        }
+    }
+
+    if (documentId <= 0) {
+        throw new Exception(
+            "Salem County returned results, but no matching deed document was found."
+        );
+    }
+
+    // -----------------------------------------------------
+    // 2. Retrieve full structured deed record
+    // -----------------------------------------------------
+
+    JSONObject documentPayload =
+        new JSONObject();
+
+    documentPayload.put(
+        "Token",
+        JSONObject.NULL
+    );
+
+    documentPayload.put(
+        "ID",
+        " " + documentId
+    );
+
+    JSONObject document =
+        salemJsonPost(
+            base + "api/document",
+            documentPayload
+        );
+
+    // -----------------------------------------------------
+    // 3. Confirm Salem labels and extract parties
+    // -----------------------------------------------------
+
+    String grantorLabel =
+        document.optString(
+            "direct_label",
+            ""
+        );
+
+    String granteeLabel =
+        document.optString(
+            "indir_label",
+            ""
+        );
+
+    if (
+        !"GRANTOR".equalsIgnoreCase(grantorLabel) ||
+        !"GRANTEE".equalsIgnoreCase(granteeLabel)
+    ) {
+        throw new Exception(
+            "Salem County returned an unexpected deed party format."
+        );
+    }
+
+    List<String> grantors =
+        new ArrayList<>();
+
+    List<String> grantees =
+        new ArrayList<>();
+
+    org.json.JSONArray direct =
+        document.optJSONArray(
+            "direct_parties"
+        );
+
+    if (direct != null) {
+        for (int i = 0; i < direct.length(); i++) {
+            String name =
+                direct.optString(i, "").trim();
+
+            if (
+                !name.isEmpty() &&
+                !grantors.contains(name)
+            ) {
+                grantors.add(name);
+            }
+        }
+    }
+
+    org.json.JSONArray reverse =
+        document.optJSONArray(
+            "reverse_parties"
+        );
+
+    if (reverse != null) {
+        for (int i = 0; i < reverse.length(); i++) {
+            String name =
+                reverse.optString(i, "").trim();
+
+            if (
+                !name.isEmpty() &&
+                !grantees.contains(name)
+            ) {
+                grantees.add(name);
+            }
+        }
+    }
+
+    if (grantees.isEmpty()) {
+        throw new Exception(
+            "The deed was found, but Salem County did not return a grantee name."
+        );
+    }
+
+    // -----------------------------------------------------
+    // 4. Return same format Gloucester already uses
+    // -----------------------------------------------------
+
+    JSONObject result =
+        new JSONObject();
+
+    result.put("success", true);
+    result.put("book", book);
+    result.put("page", page);
+    result.put(
+        "ownerName",
+        joinDeedNames(grantees)
+    );
+    result.put(
+        "grantees",
+        joinDeedNames(grantees)
+    );
+    result.put(
+        "grantors",
+        joinDeedNames(grantors)
+    );
+    result.put(
+        "source",
+        "Salem County deed index"
+    );
+
+    result.put(
+        "documentId",
+        documentId
+    );
+
+    result.put(
+        "recordingDate",
+        document.optString(
+            "rec_date",
+            ""
+        )
+    );
+
+    result.put(
+        "instrumentNumber",
+        document.optString(
+            "file_num",
+            ""
+        )
     );
 
     return result;
