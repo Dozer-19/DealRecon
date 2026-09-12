@@ -571,18 +571,53 @@ private List<String> extractDeedParties(
 
     List<String> parties = new ArrayList<>();
 
-    Pattern pattern = Pattern.compile(
-        "(?is)<td[^>]*>\\s*<a[^>]*>(.*?)</a>\\s*</td>\\s*<td[^>]*>\\s*" +
-        Pattern.quote(partyType) +
-        "\\s*</td>"
+    Pattern tablePattern = Pattern.compile(
+        "(?is)<table[^>]*id=[\"']DocDetails1_GridView_GrantorGrantee[\"'][^>]*>(.*?)</table>"
     );
 
-    Matcher matcher = pattern.matcher(detailHtml);
+    Matcher tableMatcher = tablePattern.matcher(detailHtml);
 
-    while (matcher.find()) {
-        String name = deedStripTags(matcher.group(1));
+    if (!tableMatcher.find()) {
+        return parties;
+    }
 
-        if (!name.isEmpty() && !parties.contains(name)) {
+    String tableHtml = tableMatcher.group(1);
+
+    Pattern rowPattern = Pattern.compile(
+        "(?is)<tr[^>]*>(.*?)</tr>"
+    );
+
+    Matcher rowMatcher = rowPattern.matcher(tableHtml);
+
+    while (rowMatcher.find()) {
+        String rowHtml = rowMatcher.group(1);
+
+        List<String> cells = new ArrayList<>();
+
+        Pattern cellPattern = Pattern.compile(
+            "(?is)<td[^>]*>(.*?)</td>"
+        );
+
+        Matcher cellMatcher = cellPattern.matcher(rowHtml);
+
+        while (cellMatcher.find()) {
+            cells.add(
+                deedStripTags(cellMatcher.group(1))
+            );
+        }
+
+        if (cells.size() < 2) {
+            continue;
+        }
+
+        String name = cells.get(0).trim();
+        String role = cells.get(1).trim();
+
+        if (
+            role.equalsIgnoreCase(partyType) &&
+            !name.isEmpty() &&
+            !parties.contains(name)
+        ) {
             parties.add(name);
         }
     }
