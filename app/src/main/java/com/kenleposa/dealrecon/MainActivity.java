@@ -47,6 +47,12 @@ private GenerativeModelFutures aiFallbackModel;
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
 
+    private boolean camdenLookupActive = false;
+    private int camdenPollAttempts = 0;
+    private long pendingCamdenOwnerId = -1L;
+    private String pendingCamdenResultJson = null;
+    private String pendingCamdenError = null;
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,12 +84,45 @@ webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 if (url != null &&
+                    camdenLookupActive &&
+                    isCamdenSearchUrl(url)) {
+                    return false;
+                }
+
+                if (url != null &&
                     (url.startsWith("http://") || url.startsWith("https://"))) {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     startActivity(intent);
                     return true;
                 }
+
                 return false;
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+
+                if (camdenLookupActive && isCamdenSearchUrl(url)) {
+                    camdenPollAttempts = 0;
+                    view.postDelayed(
+                        MainActivity.this::pollCamdenSearchResults,
+                        700
+                    );
+                    return;
+                }
+
+                if (
+                    url != null &&
+                    url.startsWith("file:///android_asset/index.html") &&
+                    pendingCamdenOwnerId >= 0 &&
+                    (
+                        pendingCamdenResultJson != null ||
+                        pendingCamdenError != null
+                    )
+                ) {
+                    deliverPendingCamdenResult();
+                }
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
@@ -140,6 +179,488 @@ webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
             webView = null;
         }
         super.onDestroy();
+}
+
+private boolean isCamdenSearchUrl(String url) {
+    if (url == null) return false;
+
+    try {
+        Uri uri = Uri.parse(url);
+        String host = uri.getHost();
+
+        return host != null &&
+            host.equalsIgnoreCase("camden.newvisionsystems.com") &&
+            url.toLowerCase().contains("/searchanywhere");
+    } catch (Exception e) {
+        return false;
+    }
+}
+
+private String normalizeCamdenNumber(String value) {
+    if (value == null) return "";
+
+    String cleaned = value.trim();
+
+    if (cleaned.matches("\\d+")) {
+        cleaned = cleaned.replaceFirst("^0+(?!$)", "");
+    }
+
+    return cleaned;
+}
+
+private void addCamdenName(
+        List<String> names,
+        String name
+) {
+    if (name == null) return;
+
+    String cleaned = name
+        .replaceAll("\\s+", " ")
+        .trim();
+
+    if (
+        cleaned.isEmpty() ||
+        "null".equalsIgnoreCase(cleaned)
+    ) {
+        return;
+    }
+
+    for (String existing : names) {
+        if (existing.equalsIgnoreCase(cleaned)) {
+            return;
+        }
+    }
+
+    names.add(cleaned);
+}
+
+private void pollCamdenSearchResults() {
+    if (
+        webView == null ||
+        !camdenLookupActive
+    ) {
+        return;
+    }
+
+    camdenPollAttempts++;
+
+    final String script =
+        "(function(){" +
+        "try{" +
+        "if(typeof angular==='undefined')return JSON.stringify({ready:false});" +
+        "var el=angular.element(document.body);" +
+        "var inj=el.injector&&el.injector();" +
+        "if(!inj)return JSON.stringify({ready:false});" +
+        "var ds=inj.get('documentService');" +
+        "if(!ds||!ds.SearchResults)return JSON.stringify({ready:false});" +
+        "var rows=ds.SearchResults.results;" +
+        "if(!rows||!rows.length)return JSON.stringify({ready:false});" +
+        "var out=[];" +
+        "for(var i=0;i<rows.length;i++){" +
+        "var r=rows[i]||{};" +
+        "out.push({" +
+        "party_code:r.party_code||''," +
+        "party_name:r.party_name||''," +
+        "cross_party_name:r.cross_party_name||''," +
+        "partyD_label:r.partyD_label||''," +
+        "partyR_label:r.partyR_label||''," +
+        "book:r.book==null?'':String(r.book)," +
+        "page:r.page==null?'':String(r.page)," +
+        "doc_type:r.doc_type||''," +
+        "doc_id:r.doc_id==null?'':String(r.doc_id)," +
+        "rec_date:r.rec_date||''," +
+        "file_num:r.file_num||''" +
+        "});" +
+        "}" +
+        "return JSON.stringify({ready:true,rows:out});" +
+        "}catch(e){" +
+        "return JSON.stringify({ready:false,error:String(e)});" +
+        "}" +
+        "})()";
+
+    webView.evaluateJavascript(
+        script,
+        value -> {
+            if (!camdenLookupActive) return;
+
+            try {
+                Object decoded =
+                    new org.json.JSONTokener(value)
+                        .nextValue();
+
+                String json =
+                    decoded instanceof String
+                        ? (String) decoded
+                        : String.valueOf(decoded);
+
+                JSONObject payload =
+                    new JSONObject(json);
+
+                if (payload.optBoolean("ready", false)) {
+                    processCamdenSearchResults(payload);
+                    return;
+                }
+
+            } catch (Exception ignored) {
+            }
+
+            if (camdenPollAttempts >= 40) {
+                finishCamdenLookupWithError(
+                    "Camden County loaded, but Deal Recon could not read the completed deed search."
+                );
+                return;
+            }
+
+            if (
+                webView != null &&
+                camdenLookupActive
+            ) {
+                webView.postDelayed(
+                    MainActivity.this::pollCamdenSearchResults,
+                    500
+                );
+            }
+        }
+    );
+}
+
+private void processCamdenSearchResults(
+        JSONObject payload
+) {
+    try {
+        org.json.JSONArray rows =
+            payload.optJSONArray("rows");
+
+        if (rows == null || rows.length() == 0) {
+            throw new Exception(
+                "Camden County returned no deed records."
+            );
+        }
+
+        List<String> grantees =
+            new ArrayList<>();
+
+        List<String> grantors =
+            new ArrayList<>();
+
+        String recordingDate = "";
+        String instrumentNumber = "";
+        String documentId = "";
+
+        for (int i = 0; i < rows.length(); i++) {
+            JSONObject row =
+                rows.optJSONObject(i);
+
+            if (row == null) continue;
+
+            String type =
+                row.optString(
+                    "doc_type",
+                    ""
+                ).trim();
+
+            if (
+                !type.isEmpty() &&
+                !"DEED".equalsIgnoreCase(type)
+            ) {
+                continue;
+            }
+
+            String code =
+                row.optString(
+                    "party_code",
+                    ""
+                ).trim();
+
+            String directLabel =
+                row.optString(
+                    "partyD_label",
+                    ""
+                ).trim();
+
+            String reverseLabel =
+                row.optString(
+                    "partyR_label",
+                    ""
+                ).trim();
+
+            String partyName =
+                row.optString(
+                    "party_name",
+                    ""
+                ).trim();
+
+            String crossParty =
+                row.optString(
+                    "cross_party_name",
+                    ""
+                ).trim();
+
+            boolean partyIsDirect =
+                !directLabel.isEmpty() &&
+                code.equalsIgnoreCase(directLabel);
+
+            boolean partyIsReverse =
+                !reverseLabel.isEmpty() &&
+                code.equalsIgnoreCase(reverseLabel);
+
+            boolean directMeansGrantor =
+                directLabel
+                    .toUpperCase()
+                    .contains("GRANTOR");
+
+            boolean directMeansGrantee =
+                directLabel
+                    .toUpperCase()
+                    .contains("GRANTEE");
+
+            boolean reverseMeansGrantor =
+                reverseLabel
+                    .toUpperCase()
+                    .contains("GRANTOR");
+
+            boolean reverseMeansGrantee =
+                reverseLabel
+                    .toUpperCase()
+                    .contains("GRANTEE");
+
+            if (partyIsDirect) {
+                if (directMeansGrantor) {
+                    addCamdenName(
+                        grantors,
+                        partyName
+                    );
+
+                    if (reverseMeansGrantee) {
+                        addCamdenName(
+                            grantees,
+                            crossParty
+                        );
+                    }
+                } else if (directMeansGrantee) {
+                    addCamdenName(
+                        grantees,
+                        partyName
+                    );
+
+                    if (reverseMeansGrantor) {
+                        addCamdenName(
+                            grantors,
+                            crossParty
+                        );
+                    }
+                }
+            } else if (partyIsReverse) {
+                if (reverseMeansGrantee) {
+                    addCamdenName(
+                        grantees,
+                        partyName
+                    );
+
+                    if (directMeansGrantor) {
+                        addCamdenName(
+                            grantors,
+                            crossParty
+                        );
+                    }
+                } else if (reverseMeansGrantor) {
+                    addCamdenName(
+                        grantors,
+                        partyName
+                    );
+
+                    if (directMeansGrantee) {
+                        addCamdenName(
+                            grantees,
+                            crossParty
+                        );
+                    }
+                }
+            }
+
+            if (recordingDate.isEmpty()) {
+                recordingDate =
+                    row.optString(
+                        "rec_date",
+                        ""
+                    );
+            }
+
+            if (instrumentNumber.isEmpty()) {
+                instrumentNumber =
+                    row.optString(
+                        "file_num",
+                        ""
+                    );
+            }
+
+            if (documentId.isEmpty()) {
+                documentId =
+                    row.optString(
+                        "doc_id",
+                        ""
+                    );
+            }
+        }
+
+        if (grantees.isEmpty()) {
+            throw new Exception(
+                "The Camden deed search completed, but a grantee name could not be identified."
+            );
+        }
+
+        JSONObject result =
+            new JSONObject();
+
+        result.put(
+            "success",
+            true
+        );
+
+        result.put(
+            "ownerName",
+            joinDeedNames(grantees)
+        );
+
+        result.put(
+            "grantees",
+            joinDeedNames(grantees)
+        );
+
+        result.put(
+            "grantors",
+            joinDeedNames(grantors)
+        );
+
+        result.put(
+            "source",
+            "Camden County deed index"
+        );
+
+        result.put(
+            "recordingDate",
+            recordingDate
+        );
+
+        result.put(
+            "instrumentNumber",
+            instrumentNumber
+        );
+
+        result.put(
+            "documentId",
+            documentId
+        );
+
+        pendingCamdenResultJson =
+            result.toString();
+
+        pendingCamdenError = null;
+
+        restoreDealReconAfterCamden();
+
+    } catch (Exception e) {
+        finishCamdenLookupWithError(
+            e.getMessage() == null
+                ? "Automatic Camden County deed lookup failed."
+                : e.getMessage()
+        );
+    }
+}
+
+private void finishCamdenLookupWithError(
+        String message
+) {
+    pendingCamdenResultJson = null;
+
+    pendingCamdenError =
+        message == null
+            ? "Automatic Camden County deed lookup failed."
+            : message;
+
+    restoreDealReconAfterCamden();
+}
+
+private void restoreDealReconAfterCamden() {
+    camdenLookupActive = false;
+
+    if (webView != null) {
+        webView.loadUrl(
+            "file:///android_asset/index.html"
+        );
+    }
+}
+
+private void deliverPendingCamdenResult() {
+    if (
+        webView == null ||
+        pendingCamdenOwnerId < 0
+    ) {
+        return;
+    }
+
+    final long ownerId =
+        pendingCamdenOwnerId;
+
+    final String resultJson =
+        pendingCamdenResultJson;
+
+    final String error =
+        pendingCamdenError;
+
+    pendingCamdenOwnerId = -1L;
+    pendingCamdenResultJson = null;
+    pendingCamdenError = null;
+
+    webView.postDelayed(
+        () -> {
+            if (webView == null) return;
+
+            StringBuilder js =
+                new StringBuilder();
+
+            js.append(
+                "window.pendingDeedOwnerId="
+            );
+
+            js.append(ownerId);
+            js.append(";");
+
+            if (resultJson != null) {
+                js.append(
+                    "window.onDealReconDeedResult && " +
+                    "window.onDealReconDeedResult("
+                );
+
+                js.append(
+                    JSONObject.quote(resultJson)
+                );
+
+                js.append(");");
+            } else {
+                js.append(
+                    "window.onDealReconDeedError && " +
+                    "window.onDealReconDeedError("
+                );
+
+                js.append(
+                    JSONObject.quote(
+                        error == null
+                            ? "Automatic Camden County deed lookup failed."
+                            : error
+                    )
+                );
+
+                js.append(");");
+            }
+
+            webView.evaluateJavascript(
+                js.toString(),
+                null
+            );
+        },
+        350
+    );
 }
 
 private class DealReconAI {
@@ -233,6 +754,92 @@ private class DealReconAI {
                 sendDeedError(message);
             }
         }).start();
+    }
+
+    @JavascriptInterface
+    public void lookupCamdenDeed(
+            String book,
+            String page,
+            long ownerId
+    ) {
+        if (
+            book == null ||
+            page == null
+        ) {
+            sendDeedError(
+                "Missing Camden County deed book or page."
+            );
+            return;
+        }
+
+        final String cleanBook =
+            book.trim();
+
+        final String cleanPage =
+            page.trim();
+
+        if (
+            !cleanBook.matches("\\d+") ||
+            !cleanPage.matches("\\d+")
+        ) {
+            sendDeedError(
+                "The stored Camden deed book/page is not valid."
+            );
+            return;
+        }
+
+        runOnUiThread(() -> {
+            try {
+                pendingCamdenOwnerId =
+                    ownerId;
+
+                pendingCamdenResultJson =
+                    null;
+
+                pendingCamdenError =
+                    null;
+
+                camdenLookupActive =
+                    true;
+
+                camdenPollAttempts =
+                    0;
+
+                Uri url =
+                    Uri.parse(
+                        "https://camden.newvisionsystems.com/SearchAnywhere/"
+                    )
+                    .buildUpon()
+                    .appendQueryParameter(
+                        "bookType",
+                        "O"
+                    )
+                    .appendQueryParameter(
+                        "book",
+                        cleanBook
+                    )
+                    .appendQueryParameter(
+                        "page",
+                        cleanPage
+                    )
+                    .build();
+
+                webView.loadUrl(
+                    url.toString()
+                );
+
+            } catch (Exception e) {
+                camdenLookupActive =
+                    false;
+
+                pendingCamdenOwnerId =
+                    ownerId;
+
+                finishCamdenLookupWithError(
+                    e.getMessage()
+                );
+            }
+        });
     }
 
     @JavascriptInterface

@@ -283,24 +283,38 @@ function researchOwner(id){
     }
 
     if(county.includes('CAMDEN')){
-        const url =
-            'https://camden.newvisionsystems.com/SearchAnywhere/?bookType=O&book=' +
-            encodeURIComponent(book) +
-            '&page=' +
-            encodeURIComponent(page);
+        if(!window.DealReconAI.lookupCamdenDeed){
+            window.pendingDeedOwnerId=null;
 
-        window.pendingDeedOwnerId=null;
+            const url =
+                'https://camden.newvisionsystems.com/SearchAnywhere/?bookType=O&book=' +
+                encodeURIComponent(book) +
+                '&page=' +
+                encodeURIComponent(page);
+
+            alert(
+                'This build cannot read Camden automatically yet. Opening Camden County deed records instead.'
+            );
+
+            if(window.DealReconAI.openUrl){
+                window.DealReconAI.openUrl(url);
+            }else{
+                window.location.href=url;
+            }
+
+            return;
+        }
 
         alert(
-            'Opening Camden County deed records for Book ' +
+            'Searching Camden County deed records for Book ' +
             book + ' / Page ' + page + '...'
         );
 
-        if(window.DealReconAI.openUrl){
-            window.DealReconAI.openUrl(url);
-        }else{
-            window.location.href=url;
-        }
+        window.DealReconAI.lookupCamdenDeed(
+            book,
+            page,
+            id
+        );
 
         return;
     }
