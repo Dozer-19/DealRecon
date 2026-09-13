@@ -640,9 +640,25 @@ private void processCamdenSearchResults(
         }
 
         if (grantees.isEmpty()) {
-            throw new Exception(
-                "The Camden deed search completed, but a grantee name could not be identified."
+            StringBuilder diagnostic = new StringBuilder(
+                "Camden rows found, but grantee mapping failed."
             );
+
+            for (int i = 0; i < rows.length() && i < 3; i++) {
+                JSONObject row = rows.optJSONObject(i);
+                if (row == null) continue;
+
+                diagnostic.append("\\n\\nRow ").append(i + 1)
+                    .append(":")
+                    .append("\\ncode=").append(row.optString("party_code", ""))
+                    .append("\\ndirect=").append(row.optString("partyD_label", ""))
+                    .append("\\nreverse=").append(row.optString("partyR_label", ""))
+                    .append("\\nparty=").append(row.optString("party_name", ""))
+                    .append("\\ncross=").append(row.optString("cross_party_name", ""))
+                    .append("\\ntype=").append(row.optString("doc_type", ""));
+            }
+
+            throw new Exception(diagnostic.toString());
         }
 
         JSONObject result =
