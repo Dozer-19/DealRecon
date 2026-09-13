@@ -310,6 +310,16 @@ private void pollCamdenSearchResults() {
 
     camdenPollAttempts++;
 
+    final String wantedBook =
+        JSONObject.quote(
+            normalizeCamdenNumber(pendingCamdenBook)
+        );
+
+    final String wantedPage =
+        JSONObject.quote(
+            normalizeCamdenNumber(pendingCamdenPage)
+        );
+
     final String script =
         "(function(){" +
         "try{" +
@@ -330,7 +340,24 @@ private void pollCamdenSearchResults() {
         "if(!ds)return JSON.stringify({ready:false,error:'documentService unavailable'});" +
         "if(!ds.SearchResults)return JSON.stringify({ready:false,error:'SearchResults unavailable'});" +
         "var rows=ds.SearchResults.results;" +
-        "if(!rows||!rows.length){" +
+        "var wantBook=" + wantedBook + ";" +
+        "var wantPage=" + wantedPage + ";" +
+        "function normNum(v){" +
+        "v=(v==null?'':String(v)).trim();" +
+        "if(/^\\d+$/.test(v))v=v.replace(/^0+(?!$)/,'');" +
+        "return v;" +
+        "}" +
+        "var matched=[];" +
+        "if(rows&&rows.length){" +
+        "for(var mi=0;mi<rows.length;mi++){" +
+        "var mr=rows[mi]||{};" +
+        "if(" +
+        "normNum(mr.book)===normNum(wantBook)&&" +
+        "normNum(mr.page)===normNum(wantPage)" +
+        ")matched.push(mr);" +
+        "}" +
+        "}" +
+        "if(!matched.length){" +
         "var bookInput=document.querySelector('[ng-model=\\\"documentService.SearchCriteria.searchBook\\\"]');" +
         "var pageInput=document.querySelector('[ng-model=\\\"documentService.SearchCriteria.searchPage\\\"]');" +
         "var hasRecaptcha=!!document.querySelector('iframe[src*=\\\"recaptcha\\\"],.g-recaptcha,[vc-recaptcha]');" +
@@ -339,6 +366,7 @@ private void pollCamdenSearchResults() {
         "error:'No Camden search result rows yet'," +
         "working:!!ds.SearchResults.working," +
         "resultCount:rows?rows.length:0," +
+        "matchingRows:matched.length," +
         "bookValue:bookInput?bookInput.value:''," +
         "pageValue:pageInput?pageInput.value:''," +
         "hasRecaptcha:hasRecaptcha," +
@@ -346,8 +374,8 @@ private void pollCamdenSearchResults() {
         "});" +
         "}" +
         "var out=[];" +
-        "for(var i=0;i<rows.length;i++){" +
-        "var r=rows[i]||{};" +
+        "for(var i=0;i<matched.length;i++){" +
+        "var r=matched[i]||{};" +
         "out.push({" +
         "party_code:r.party_code||''," +
         "party_name:r.party_name||''," +
