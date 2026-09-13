@@ -248,9 +248,10 @@ private void pollCamdenSearchResults() {
         "(function(){" +
         "try{" +
         "if(typeof angular==='undefined')return JSON.stringify({ready:false});" +
-        "var el=angular.element(document.body);" +
+        "var root=document.querySelector('[ng-app=\\\"Main\\\"]')||document.body;" +
+        "var el=angular.element(root);" +
         "var inj=el.injector&&el.injector();" +
-        "if(!inj)return JSON.stringify({ready:false});" +
+        "if(!inj)return JSON.stringify({ready:false,error:'no injector'});" +
         "var ds=inj.get('documentService');" +
         "if(!ds||!ds.SearchResults)return JSON.stringify({ready:false});" +
         "var rows=ds.SearchResults.results;" +
