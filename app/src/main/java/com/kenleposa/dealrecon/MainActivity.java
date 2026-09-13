@@ -52,6 +52,8 @@ private GenerativeModelFutures aiFallbackModel;
     private long pendingCamdenOwnerId = -1L;
     private String pendingCamdenResultJson = null;
     private String pendingCamdenError = null;
+    private String pendingCamdenBook = "";
+    private String pendingCamdenPage = "";
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -105,9 +107,10 @@ webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
 
                 if (camdenLookupActive && isCamdenSearchUrl(url)) {
                     camdenPollAttempts = 0;
+                    prepareCamdenSearchPage(view);
                     view.postDelayed(
                         MainActivity.this::pollCamdenSearchResults,
-                        700
+                        1000
                     );
                     return;
                 }
@@ -234,6 +237,69 @@ private void addCamdenName(
     names.add(cleaned);
 }
 
+private void prepareCamdenSearchPage(WebView view) {
+    if (
+        view == null ||
+        !camdenLookupActive
+    ) {
+        return;
+    }
+
+    final String book =
+        JSONObject.quote(
+            normalizeCamdenNumber(pendingCamdenBook)
+        );
+
+    final String page =
+        JSONObject.quote(
+            normalizeCamdenNumber(pendingCamdenPage)
+        );
+
+    final String script =
+        "(function(){" +
+        "try{" +
+        "var b=document.querySelector('[ng-model=\\\"documentService.SearchCriteria.searchBook\\\"]');" +
+        "var p=document.querySelector('[ng-model=\\\"documentService.SearchCriteria.searchPage\\\"]');" +
+        "function setField(el,val){" +
+        "if(!el)return false;" +
+        "el.focus();" +
+        "el.value=val;" +
+        "el.dispatchEvent(new Event('input',{bubbles:true}));" +
+        "el.dispatchEvent(new Event('change',{bubbles:true}));" +
+        "try{" +
+        "if(typeof angular!=='undefined'){" +
+        "var ae=angular.element(el);" +
+        "var ngModel=ae.controller('ngModel');" +
+        "if(ngModel){" +
+        "ngModel.$setViewValue(val);" +
+        "ngModel.$render();" +
+        "}" +
+        "}" +
+        "}catch(ignore){}" +
+        "return true;" +
+        "}" +
+        "var bok=setField(b," + book + ");" +
+        "var pok=setField(p," + page + ");" +
+        "return JSON.stringify({bookFilled:bok,pageFilled:pok});" +
+        "}catch(e){" +
+        "return JSON.stringify({error:String(e)});" +
+        "}" +
+        "})()";
+
+    view.evaluateJavascript(
+        script,
+        value -> {
+            if (!camdenLookupActive) return;
+
+            android.widget.Toast.makeText(
+                MainActivity.this,
+                "Camden Book/Page filled. Complete the reCAPTCHA and tap Search.",
+                android.widget.Toast.LENGTH_LONG
+            ).show();
+        }
+    );
+}
+
 private void pollCamdenSearchResults() {
     if (
         webView == null ||
@@ -325,7 +391,7 @@ private void pollCamdenSearchResults() {
                     return;
                 }
 
-                if (camdenPollAttempts >= 40) {
+                if (camdenPollAttempts >= 1200) {
                     String diagnostic =
                         payload.optString(
                             "error",
@@ -351,7 +417,7 @@ private void pollCamdenSearchResults() {
             } catch (Exception ignored) {
             }
 
-            if (camdenPollAttempts >= 40) {
+            if (camdenPollAttempts >= 1200) {
                 finishCamdenLookupWithError(
                     "Camden diagnostic could not be read."
                 );
@@ -840,6 +906,12 @@ private class DealReconAI {
 
                 pendingCamdenError =
                     null;
+
+                pendingCamdenBook =
+                    cleanBook;
+
+                pendingCamdenPage =
+                    cleanPage;
 
                 camdenLookupActive =
                     true;
