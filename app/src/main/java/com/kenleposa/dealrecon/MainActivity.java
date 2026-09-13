@@ -264,7 +264,21 @@ private void pollCamdenSearchResults() {
         "if(!ds)return JSON.stringify({ready:false,error:'documentService unavailable'});" +
         "if(!ds.SearchResults)return JSON.stringify({ready:false,error:'SearchResults unavailable'});" +
         "var rows=ds.SearchResults.results;" +
-        "if(!rows||!rows.length)return JSON.stringify({ready:false});" +
+        "if(!rows||!rows.length){" +
+        "var bookInput=document.querySelector('[ng-model=\\\"documentService.SearchCriteria.searchBook\\\"]');" +
+        "var pageInput=document.querySelector('[ng-model=\\\"documentService.SearchCriteria.searchPage\\\"]');" +
+        "var hasRecaptcha=!!document.querySelector('iframe[src*=\\\"recaptcha\\\"],.g-recaptcha,[vc-recaptcha]');" +
+        "return JSON.stringify({" +
+        "ready:false," +
+        "error:'No Camden search result rows yet'," +
+        "working:!!ds.SearchResults.working," +
+        "resultCount:rows?rows.length:0," +
+        "bookValue:bookInput?bookInput.value:''," +
+        "pageValue:pageInput?pageInput.value:''," +
+        "hasRecaptcha:hasRecaptcha," +
+        "url:String(location.href)" +
+        "});" +
+        "}" +
         "var out=[];" +
         "for(var i=0;i<rows.length;i++){" +
         "var r=rows[i]||{};" +
@@ -311,12 +325,35 @@ private void pollCamdenSearchResults() {
                     return;
                 }
 
+                if (camdenPollAttempts >= 40) {
+                    String diagnostic =
+                        payload.optString(
+                            "error",
+                            "Camden search did not become ready."
+                        );
+
+                    diagnostic +=
+                        "\\nBook field: " +
+                        payload.optString("bookValue", "(unknown)") +
+                        "\\nPage field: " +
+                        payload.optString("pageValue", "(unknown)") +
+                        "\\nSearch working: " +
+                        payload.optBoolean("working", false) +
+                        "\\nResult rows: " +
+                        payload.optInt("resultCount", 0) +
+                        "\\nreCAPTCHA present: " +
+                        payload.optBoolean("hasRecaptcha", false);
+
+                    finishCamdenLookupWithError(diagnostic);
+                    return;
+                }
+
             } catch (Exception ignored) {
             }
 
             if (camdenPollAttempts >= 40) {
                 finishCamdenLookupWithError(
-                    "Camden County loaded, but Deal Recon could not read the completed deed search."
+                    "Camden diagnostic could not be read."
                 );
                 return;
             }
