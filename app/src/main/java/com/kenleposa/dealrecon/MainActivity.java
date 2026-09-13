@@ -250,10 +250,19 @@ private void pollCamdenSearchResults() {
         "if(typeof angular==='undefined')return JSON.stringify({ready:false});" +
         "var root=document.querySelector('[ng-app=\\\"Main\\\"]')||document.body;" +
         "var el=angular.element(root);" +
+        "var ds=null;" +
+        "try{" +
+        "var scope=el.scope&&el.scope();" +
+        "if(scope&&scope.documentService)ds=scope.documentService;" +
+        "}catch(ignore){}" +
+        "if(!ds){" +
+        "try{" +
         "var inj=el.injector&&el.injector();" +
-        "if(!inj)return JSON.stringify({ready:false,error:'no injector'});" +
-        "var ds=inj.get('documentService');" +
-        "if(!ds||!ds.SearchResults)return JSON.stringify({ready:false});" +
+        "if(inj)ds=inj.get('documentService');" +
+        "}catch(ignore){}" +
+        "}" +
+        "if(!ds)return JSON.stringify({ready:false,error:'documentService unavailable'});" +
+        "if(!ds.SearchResults)return JSON.stringify({ready:false,error:'SearchResults unavailable'});" +
         "var rows=ds.SearchResults.results;" +
         "if(!rows||!rows.length)return JSON.stringify({ready:false});" +
         "var out=[];" +
