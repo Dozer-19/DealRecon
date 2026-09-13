@@ -500,12 +500,13 @@ private void processCamdenSearchResults(
                     ""
                 ).trim();
 
-            if (
-                !type.isEmpty() &&
-                !"DEED".equalsIgnoreCase(type)
-            ) {
-                continue;
-            }
+            /*
+             * Camden/NewVision may return the deed type using a longer
+             * description or code instead of the exact word "DEED".
+             * Because these rows already matched the requested Book/Page,
+             * do not discard them just because doc_type is formatted
+             * differently.
+             */
 
             String code =
                 row.optString(
@@ -554,7 +555,41 @@ private void processCamdenSearchResults(
                 !reverseLabel.isEmpty() &&
                 code.equalsIgnoreCase(reverseLabel);
 
-            if (partyIsDirect) {
+            /*
+             * NewVision also exposes human-readable Direct/Reverse labels.
+             * For deeds, Direct normally represents Grantor/Seller and
+             * Reverse normally represents Grantee/Buyer. Some Camden
+             * responses do not make party_code equal those labels, so use
+             * the label meanings as an additional safe mapping.
+             */
+            String directUpper = directLabel.toUpperCase();
+            String reverseUpper = reverseLabel.toUpperCase();
+
+            boolean labelsSayDirectGrantor =
+                directUpper.contains("GRANTOR") ||
+                directUpper.contains("SELLER");
+
+            boolean labelsSayReverseGrantee =
+                reverseUpper.contains("GRANTEE") ||
+                reverseUpper.contains("BUYER");
+
+            if (
+                !partyIsDirect &&
+                !partyIsReverse &&
+                labelsSayDirectGrantor &&
+                labelsSayReverseGrantee
+            ) {
+                addCamdenName(
+                    grantors,
+                    partyName
+                );
+
+                addCamdenName(
+                    grantees,
+                    crossParty
+                );
+
+            } else if (partyIsDirect) {
                 addCamdenName(
                     grantors,
                     partyName
