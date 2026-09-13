@@ -376,21 +376,17 @@ private void pollCamdenSearchResults() {
         "var out=[];" +
         "for(var i=0;i<matched.length;i++){" +
         "var r=matched[i]||{};" +
-        "out.push({" +
-        "party_code:r.party_code||''," +
-        "party_name:r.party_name||''," +
-        "cross_party_name:r.cross_party_name||''," +
-        "partyD_label:r.partyD_label||''," +
-        "partyR_label:r.partyR_label||''," +
-        "book:r.book==null?'':String(r.book)," +
-        "page:r.page==null?'':String(r.page)," +
-        "doc_type:r.doc_type||''," +
-        "doc_id:r.doc_id==null?'':String(r.doc_id)," +
-        "rec_date:r.rec_date||''," +
-        "file_num:r.file_num||''" +
-        "});" +
+        "var snapshot={};" +
+        "for(var k in r){" +
+        "try{" +
+        "var v=r[k];" +
+        "if(v==null||typeof v==='string'||typeof v==='number'||typeof v==='boolean')" +
+        "snapshot[k]=v;" +
+        "}catch(ignore){}" +
         "}" +
-        "return JSON.stringify({ready:true,rows:out});" +
+        "out.push(snapshot);" +
+        "}" +
+        "return JSON.stringify({ready:true,debugCamdenRow:true,rows:out});" +
         "}catch(e){" +
         "return JSON.stringify({ready:false,error:String(e)});" +
         "}" +
@@ -415,7 +411,22 @@ private void pollCamdenSearchResults() {
                     new JSONObject(json);
 
                 if (payload.optBoolean("ready", false)) {
-                    processCamdenSearchResults(payload);
+                    org.json.JSONArray debugRows =
+                        payload.optJSONArray("rows");
+
+                    String diagnostic =
+                        "CAMDEN EXACT RESULT ROW";
+
+                    if (
+                        debugRows != null &&
+                        debugRows.length() > 0
+                    ) {
+                        diagnostic +=
+                            "\\n\\n" +
+                            debugRows.optJSONObject(0).toString();
+                    }
+
+                    finishCamdenLookupWithError(diagnostic);
                     return;
                 }
 
