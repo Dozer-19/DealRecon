@@ -427,22 +427,133 @@ private void pollCamdenSearchResults() {
                     new JSONObject(json);
 
                 if (payload.optBoolean("ready", false)) {
-                    org.json.JSONArray debugRows =
+                    org.json.JSONArray documentRows =
                         payload.optJSONArray("rows");
 
-                    String diagnostic =
-                        "CAMDEN EXACT DOCUMENT DETAIL";
-
                     if (
-                        debugRows != null &&
-                        debugRows.length() > 0
+                        documentRows == null ||
+                        documentRows.length() == 0 ||
+                        documentRows.optJSONObject(0) == null
                     ) {
-                        diagnostic +=
-                            "\\n\\n" +
-                            debugRows.optJSONObject(0).toString();
+                        finishCamdenLookupWithError(
+                            "Camden County returned an empty deed detail."
+                        );
+                        return;
                     }
 
-                    finishCamdenLookupWithError(diagnostic);
+                    JSONObject document =
+                        documentRows.optJSONObject(0);
+
+                    String directLabel =
+                        document.optString(
+                            "direct_label",
+                            ""
+                        ).trim();
+
+                    String reverseLabel =
+                        document.optString(
+                            "indir_label",
+                            ""
+                        ).trim();
+
+                    List<String> grantors =
+                        new ArrayList<>();
+
+                    List<String> grantees =
+                        new ArrayList<>();
+
+                    org.json.JSONArray direct =
+                        document.optJSONArray(
+                            "direct_parties"
+                        );
+
+                    if (direct != null) {
+                        for (int i = 0; i < direct.length(); i++) {
+                            addCamdenName(
+                                grantors,
+                                direct.optString(i, "")
+                            );
+                        }
+                    }
+
+                    org.json.JSONArray reverse =
+                        document.optJSONArray(
+                            "reverse_parties"
+                        );
+
+                    if (reverse != null) {
+                        for (int i = 0; i < reverse.length(); i++) {
+                            addCamdenName(
+                                grantees,
+                                reverse.optString(i, "")
+                            );
+                        }
+                    }
+
+                    if (
+                        !"GRANTOR".equalsIgnoreCase(directLabel) ||
+                        !"GRANTEE".equalsIgnoreCase(reverseLabel)
+                    ) {
+                        finishCamdenLookupWithError(
+                            "Camden County returned an unexpected deed party format."
+                        );
+                        return;
+                    }
+
+                    if (grantees.isEmpty()) {
+                        finishCamdenLookupWithError(
+                            "The Camden deed was found, but no grantee name was returned."
+                        );
+                        return;
+                    }
+
+                    JSONObject result =
+                        new JSONObject();
+
+                    result.put("success", true);
+                    result.put(
+                        "book",
+                        pendingCamdenBook
+                    );
+                    result.put(
+                        "page",
+                        pendingCamdenPage
+                    );
+                    result.put(
+                        "ownerName",
+                        joinDeedNames(grantees)
+                    );
+                    result.put(
+                        "grantees",
+                        joinDeedNames(grantees)
+                    );
+                    result.put(
+                        "grantors",
+                        joinDeedNames(grantors)
+                    );
+                    result.put(
+                        "source",
+                        "Camden County deed index"
+                    );
+                    result.put(
+                        "documentId",
+                        document.optString("id", "")
+                    );
+                    result.put(
+                        "recordingDate",
+                        document.optString("rec_date", "")
+                    );
+                    result.put(
+                        "instrumentNumber",
+                        document.optString("file_num", "")
+                    );
+
+                    pendingCamdenResultJson =
+                        result.toString();
+
+                    pendingCamdenError = null;
+
+                    restoreDealReconAfterCamden();
                     return;
                 }
 
