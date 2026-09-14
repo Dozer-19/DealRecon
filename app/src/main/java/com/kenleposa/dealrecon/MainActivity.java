@@ -373,20 +373,36 @@ private void pollCamdenSearchResults() {
         "url:String(location.href)" +
         "});" +
         "}" +
-        "var out=[];" +
-        "for(var i=0;i<matched.length;i++){" +
-        "var r=matched[i]||{};" +
-        "var snapshot={};" +
-        "for(var k in r){" +
+        "var match=matched[0]||{};" +
+        "var docId=match.doc_id;" +
+        "if(!docId){" +
+        "return JSON.stringify({ready:false,error:'Matching Camden row has no document ID'});" +
+        "}" +
+        "var dd=ds.DocumentResults&&ds.DocumentResults.documentData;" +
+        "if(!window.__dealReconCamdenDocRequested){" +
+        "window.__dealReconCamdenDocRequested=String(docId);" +
         "try{" +
-        "var v=r[k];" +
-        "if(v==null||typeof v==='string'||typeof v==='number'||typeof v==='boolean')" +
+        "ds.FetchDocument(docId);" +
+        "}catch(fetchError){" +
+        "return JSON.stringify({ready:false,error:'Camden document open failed: '+String(fetchError)});" +
+        "}" +
+        "return JSON.stringify({ready:false,error:'Opening Camden deed detail...',documentId:String(docId)});" +
+        "}" +
+        "if(!dd){" +
+        "return JSON.stringify({ready:false,error:'Waiting for Camden deed detail...',documentId:String(docId)});" +
+        "}" +
+        "var snapshot={};" +
+        "for(var k in dd){" +
+        "try{" +
+        "var v=dd[k];" +
+        "if(v==null||typeof v==='string'||typeof v==='number'||typeof v==='boolean'){" +
         "snapshot[k]=v;" +
+        "}else{" +
+        "try{snapshot[k]=JSON.parse(JSON.stringify(v));}catch(ignore2){}" +
+        "}" +
         "}catch(ignore){}" +
         "}" +
-        "out.push(snapshot);" +
-        "}" +
-        "return JSON.stringify({ready:true,debugCamdenRow:true,rows:out});" +
+        "return JSON.stringify({ready:true,debugCamdenDocument:true,rows:[snapshot]});" +
         "}catch(e){" +
         "return JSON.stringify({ready:false,error:String(e)});" +
         "}" +
@@ -415,7 +431,7 @@ private void pollCamdenSearchResults() {
                         payload.optJSONArray("rows");
 
                     String diagnostic =
-                        "CAMDEN EXACT RESULT ROW";
+                        "CAMDEN EXACT DOCUMENT DETAIL";
 
                     if (
                         debugRows != null &&
