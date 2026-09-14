@@ -352,7 +352,7 @@ window.onDealReconDeedResult = function(resultJson){
         }
 
         let owners = get('owners');
-        const i = owners.findIndex(x => x.id === ownerId);
+        const i = owners.findIndex(x => String(x.id) === String(ownerId));
 
         if(i < 0){
             alert('The Owner Recon record could not be found.');
