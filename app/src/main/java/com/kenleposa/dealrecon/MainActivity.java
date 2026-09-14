@@ -917,6 +917,10 @@ private void restoreDealReconAfterCamden() {
 }
 
 private void deliverPendingCamdenResult() {
+    attemptDeliverPendingCamdenResult(0);
+}
+
+private void attemptDeliverPendingCamdenResult(int attempt) {
     if (
         webView == null ||
         pendingCamdenOwnerId < 0
@@ -924,30 +928,55 @@ private void deliverPendingCamdenResult() {
         return;
     }
 
-    final long ownerId =
-        pendingCamdenOwnerId;
+    final long ownerId = pendingCamdenOwnerId;
 
-    final String resultJson =
-        pendingCamdenResultJson;
+    String readinessScript =
+        "(function(){" +
+        "try{" +
+        "if(typeof window.onDealReconDeedResult!=='function')return 'WAIT';" +
+        "if(typeof get!=='function')return 'WAIT';" +
+        "var owners=get('owners')||[];" +
+        "var found=owners.some(function(x){" +
+        "return String(x.id)===String(" + ownerId + ");" +
+        "});" +
+        "return found?'READY':'WAIT';" +
+        "}catch(e){return 'WAIT';}" +
+        "})()";
 
-    final String error =
-        pendingCamdenError;
-
-    pendingCamdenOwnerId = -1L;
-    pendingCamdenResultJson = null;
-    pendingCamdenError = null;
-
-    webView.postDelayed(
-        () -> {
+    webView.evaluateJavascript(
+        readinessScript,
+        value -> {
             if (webView == null) return;
+
+            boolean ready =
+                value != null &&
+                value.contains("READY");
+
+            if (!ready) {
+                if (attempt < 120) {
+                    webView.postDelayed(
+                        () -> attemptDeliverPendingCamdenResult(attempt + 1),
+                        500
+                    );
+                } else {
+                    webView.evaluateJavascript(
+                        "alert('Camden deed lookup finished, but Deal Recon is still waiting for Owner Recon to load. Please try Search Deed / Find Owner again.');",
+                        null
+                    );
+                }
+                return;
+            }
+
+            final String resultJson =
+                pendingCamdenResultJson;
+
+            final String error =
+                pendingCamdenError;
 
             StringBuilder js =
                 new StringBuilder();
 
-            js.append(
-                "window.pendingDeedOwnerId="
-            );
-
+            js.append("window.pendingDeedOwnerId=");
             js.append(ownerId);
             js.append(";");
 
@@ -956,18 +985,13 @@ private void deliverPendingCamdenResult() {
                     "window.onDealReconDeedResult && " +
                     "window.onDealReconDeedResult("
                 );
-
-                js.append(
-                    JSONObject.quote(resultJson)
-                );
-
+                js.append(JSONObject.quote(resultJson));
                 js.append(");");
             } else {
                 js.append(
                     "window.onDealReconDeedError && " +
                     "window.onDealReconDeedError("
                 );
-
                 js.append(
                     JSONObject.quote(
                         error == null
@@ -975,16 +999,18 @@ private void deliverPendingCamdenResult() {
                             : error
                     )
                 );
-
                 js.append(");");
             }
 
             webView.evaluateJavascript(
                 js.toString(),
-                null
+                ignored -> {
+                    pendingCamdenOwnerId = -1L;
+                    pendingCamdenResultJson = null;
+                    pendingCamdenError = null;
+                }
             );
-        },
-        350
+        }
     );
 }
 
