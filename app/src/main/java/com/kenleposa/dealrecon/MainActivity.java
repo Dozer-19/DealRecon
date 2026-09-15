@@ -238,6 +238,13 @@ private void addCamdenName(
 }
 
 private void prepareCamdenSearchPage(WebView view) {
+    prepareCamdenSearchPage(view, 0);
+}
+
+private void prepareCamdenSearchPage(
+        WebView view,
+        int attempt
+) {
     if (
         view == null ||
         !camdenLookupActive
@@ -258,10 +265,12 @@ private void prepareCamdenSearchPage(WebView view) {
     final String script =
         "(function(){" +
         "try{" +
-        "var b=document.querySelector('[ng-model=\\\"documentService.SearchCriteria.searchBook\\\"]');" +
-        "var p=document.querySelector('[ng-model=\\\"documentService.SearchCriteria.searchPage\\\"]');" +
+        "var b=document.querySelector('[ng-model=\"documentService.SearchCriteria.searchBook\"]');" +
+        "var p=document.querySelector('[ng-model=\"documentService.SearchCriteria.searchPage\"]');" +
+        "if(!b||!p){" +
+        "return JSON.stringify({bookFilled:false,pageFilled:false,fieldsReady:false});" +
+        "}" +
         "function setField(el,val){" +
-        "if(!el)return false;" +
         "el.focus();" +
         "el.value=val;" +
         "el.dispatchEvent(new Event('input',{bubbles:true}));" +
@@ -276,26 +285,69 @@ private void prepareCamdenSearchPage(WebView view) {
         "}" +
         "}" +
         "}catch(ignore){}" +
-        "return true;" +
+        "return String(el.value||'')===String(val);" +
         "}" +
         "var bok=setField(b," + book + ");" +
         "var pok=setField(p," + page + ");" +
-        "return JSON.stringify({bookFilled:bok,pageFilled:pok});" +
+        "return JSON.stringify({" +
+        "bookFilled:bok," +
+        "pageFilled:pok," +
+        "fieldsReady:true," +
+        "bookValue:b.value||''," +
+        "pageValue:p.value||''" +
+        "});" +
         "}catch(e){" +
-        "return JSON.stringify({error:String(e)});" +
+        "return JSON.stringify({error:String(e),bookFilled:false,pageFilled:false});" +
         "}" +
         "})()";
 
     view.evaluateJavascript(
         script,
         value -> {
-            if (!camdenLookupActive) return;
+            if (!camdenLookupActive || webView == null) return;
 
-            android.widget.Toast.makeText(
-                MainActivity.this,
-                "Camden Book/Page filled. Complete the reCAPTCHA and tap Search.",
-                android.widget.Toast.LENGTH_LONG
-            ).show();
+            boolean filled = false;
+
+            try {
+                Object decoded =
+                    new org.json.JSONTokener(value).nextValue();
+
+                String json =
+                    decoded instanceof String
+                        ? (String) decoded
+                        : String.valueOf(decoded);
+
+                JSONObject result =
+                    new JSONObject(json);
+
+                filled =
+                    result.optBoolean("bookFilled", false) &&
+                    result.optBoolean("pageFilled", false);
+
+            } catch (Exception ignored) {
+            }
+
+            if (filled) {
+                android.widget.Toast.makeText(
+                    MainActivity.this,
+                    "Camden Book/Page filled. Complete the reCAPTCHA and tap Search.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show();
+                return;
+            }
+
+            if (attempt < 40 && camdenLookupActive) {
+                webView.postDelayed(
+                    () -> prepareCamdenSearchPage(webView, attempt + 1),
+                    500
+                );
+            } else {
+                android.widget.Toast.makeText(
+                    MainActivity.this,
+                    "Camden is still loading the Book/Page fields. Please try Search Deed / Find Owner again.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show();
+            }
         }
     );
 }
