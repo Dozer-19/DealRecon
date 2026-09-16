@@ -451,7 +451,33 @@ private void pollCamdenSearchResults() {
 
                 if (payload.optBoolean("ready", false)) {
                     if (payload.optBoolean("camdenSearchResults", false)) {
-                        processCamdenSearchResults(payload);
+                        webView.evaluateJavascript(
+                            "(function(){" +
+                            "try{" +
+                            "var els=document.querySelectorAll('a,button');" +
+                            "var out=[];" +
+                            "for(var i=0;i<els.length;i++){" +
+                            "var t=(els[i].innerText||els[i].textContent||'').trim();" +
+                            "if(/view/i.test(t)){" +
+                            "out.push({" +
+                            "text:t," +
+                            "tag:els[i].tagName," +
+                            "href:els[i].getAttribute('href')," +
+                            "onclick:els[i].getAttribute('onclick')," +
+                            "ngclick:els[i].getAttribute('ng-click')," +
+                            "outer:els[i].outerHTML" +
+                            "});" +
+                            "}" +
+                            "}" +
+                            "return JSON.stringify(out);" +
+                            "}catch(e){return JSON.stringify({error:String(e)});}" +
+                            "})()",
+                            diag -> new android.app.AlertDialog.Builder(MainActivity.this)
+                                .setTitle("Camden View Diagnostic")
+                                .setMessage(diag)
+                                .setPositiveButton("OK", null)
+                                .show()
+                        );
                         return;
                     }
 
