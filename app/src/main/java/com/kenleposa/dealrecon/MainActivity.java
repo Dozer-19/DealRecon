@@ -106,12 +106,13 @@ webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
                 super.onPageFinished(view, url);
 
                 if (camdenLookupActive && isCamdenSearchUrl(url)) {
-                    camdenPollAttempts = 0;
+                    /*
+                     * Camden manual workflow:
+                     * Deal Recon fills Book/Page, then leaves the Camden
+                     * County page open for the user to complete the
+                     * reCAPTCHA, Search, and review the deed results.
+                     */
                     prepareCamdenSearchPage(view);
-                    view.postDelayed(
-                        MainActivity.this::pollCamdenSearchResults,
-                        1000
-                    );
                     return;
                 }
 
