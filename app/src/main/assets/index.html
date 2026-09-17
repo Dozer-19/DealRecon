@@ -84,6 +84,17 @@ Phone Recon keeps the property and verified owner connected to the same Lead Rec
 
 
 <div class="card full">
+<h2>🔎 Contact Search Results</h2>
+<p class="sub">
+Phone Recon will compare possible contacts against the verified owner,
+property address, and tax mailing address. Select a result before saving.
+</p>
+<div id="phoneReconCandidates">
+<p class="sub">No contact search has been run yet.</p>
+</div>
+</div>
+
+<div class="card full">
 <h2>Possible Contact</h2>
 
 <div class="fields">
@@ -701,21 +712,182 @@ function clearPhoneRecon(){
 }
 
 
+
+const PHONE_RECON_DNC_AREA_CODES=['856','609','215','267','732'];
+
+function phoneReconDigits(value){
+    return String(value||'').replace(/\D/g,'');
+}
+
+function phoneReconAreaCode(value){
+    let digits=phoneReconDigits(value);
+
+    if(digits.length===11 && digits.startsWith('1')){
+        digits=digits.slice(1);
+    }
+
+    return digits.length>=10 ? digits.slice(0,3) : '';
+}
+
+function phoneReconCoverageStatus(value){
+    const area=phoneReconAreaCode(value);
+
+    if(!area){
+        return 'Phone number incomplete';
+    }
+
+    return PHONE_RECON_DNC_AREA_CODES.includes(area)
+        ? 'DNC coverage area'
+        : 'DNC coverage needed — do not call yet';
+}
+
+function phoneReconConfidenceScore(candidate){
+    let score=0;
+
+    if(candidate.ownerMatch)score+=40;
+    if(candidate.mailingMatch)score+=25;
+    if(candidate.propertyMatch)score+=20;
+    if(candidate.source)score+=10;
+    if(candidate.phone)score+=5;
+
+    return Math.min(100,score);
+}
+
+function phoneReconConfidenceLabel(score){
+    if(score>=80)return 'High';
+    if(score>=55)return 'Medium';
+    return 'Low';
+}
+
+function selectPhoneReconCandidate(index){
+    const candidates=window.phoneReconCandidates||[];
+    const c=candidates[index];
+
+    if(!c){
+        alert('Phone Recon candidate could not be found.');
+        return;
+    }
+
+    if($('phPhone'))$('phPhone').value=c.phone||'';
+    if($('phEmail'))$('phEmail').value=c.email||'';
+    if($('phType'))$('phType').value=c.phoneType||'Unknown';
+
+    if($('phConfidence')){
+        $('phConfidence').value=
+            c.confidence||
+            phoneReconConfidenceLabel(phoneReconConfidenceScore(c));
+    }
+
+    if($('phSource')){
+        $('phSource').value=c.source||'Phone Recon';
+    }
+
+    const coverage=phoneReconCoverageStatus(c.phone);
+
+    if($('phDnc')){
+        $('phDnc').value=
+            coverage==='DNC coverage needed — do not call yet'
+                ? 'Check Before Calling'
+                : 'Unknown';
+    }
+
+    if($('phoneReconResult')){
+        $('phoneReconResult').innerHTML=
+            '<b>Contact candidate selected.</b><br>'+
+            'Phone: '+esc(c.phone||'Not recorded')+'<br>'+
+            'Source: '+esc(c.source||'Not recorded')+'<br>'+
+            'Confidence: '+esc(
+                c.confidence||
+                phoneReconConfidenceLabel(phoneReconConfidenceScore(c))
+            )+'<br>'+
+            'Compliance: '+esc(coverage);
+    }
+}
+
+function renderPhoneReconCandidates(candidates){
+    const box=$('phoneReconCandidates');
+    if(!box)return;
+
+    window.phoneReconCandidates=
+        Array.isArray(candidates) ? candidates : [];
+
+    if(!window.phoneReconCandidates.length){
+        box.innerHTML=
+            '<p class="sub">No contact candidates found yet.</p>';
+        return;
+    }
+
+    box.innerHTML=window.phoneReconCandidates.map((c,i)=>{
+        const score=phoneReconConfidenceScore(c);
+        const confidence=
+            c.confidence||phoneReconConfidenceLabel(score);
+        const coverage=phoneReconCoverageStatus(c.phone);
+
+        return `
+        <div class="item">
+            <h3>${esc(c.owner||$('phOwner')?.value||'Possible Contact')}</h3>
+
+            <p>
+                ${c.phone?'📞 '+esc(c.phone):'No phone'}
+                ${c.email?' • ✉ '+esc(c.email):''}
+            </p>
+
+            <span class="tag">${esc(c.phoneType||'Unknown')}</span>
+            <span class="tag">${esc(confidence)} confidence</span>
+            <span class="tag">${score}% match</span>
+
+            <p>Source: ${esc(c.source||'Not recorded')}</p>
+            <p>${esc(coverage)}</p>
+
+            <button class="btn alt"
+                onclick="selectPhoneReconCandidate(${i})">
+                Use This Contact
+            </button>
+        </div>`;
+    }).join('');
+}
+
 function phoneReconSearch(){
     const owner=String($('phOwner')?.value||'').trim();
     const prop=String($('phProp')?.value||'').trim();
+    const mail=String($('phMail')?.value||'').trim();
 
     if(!owner && !prop){
         alert('Load an Owner Recon record or enter an owner/property first.');
         return;
     }
 
+    const candidates=[
+        {
+            owner:owner,
+            phone:'8565551212',
+            phoneType:'Mobile',
+            email:'',
+            source:'PHONE RECON TEST — VERIFIED MATCH',
+            ownerMatch:true,
+            mailingMatch:!!mail,
+            propertyMatch:!!prop
+        },
+        {
+            owner:owner,
+            phone:'9085553434',
+            phoneType:'Mobile',
+            email:'',
+            source:'PHONE RECON TEST — POSSIBLE MATCH',
+            ownerMatch:true,
+            mailingMatch:false,
+            propertyMatch:!!prop
+        }
+    ];
+
+    renderPhoneReconCandidates(candidates);
+
     if($('phoneReconResult')){
         $('phoneReconResult').innerHTML=
-            '<b>Phone Recon is ready for contact-source integration.</b><br>'+
-            'Owner: '+esc(owner||'Not recorded')+'<br>'+
-            'Property: '+esc(prop||'Not recorded')+'<br><br>'+
-            'Enter a contact result from a permitted source and save it to Lead Recon.';
+            '<b>TEST MODE:</b> Two contact candidates were generated.<br>'+
+            'Select a candidate using <b>Use This Contact</b>.<br><br>'+
+            '856 should show as a DNC coverage area.<br>'+
+            '908 should show as coverage needed.';
     }
 }
 
