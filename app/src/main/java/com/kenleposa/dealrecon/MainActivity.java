@@ -1163,6 +1163,35 @@ private class DealReconAI {
     }
 
     @JavascriptInterface
+    public void lookupCumberlandDeed(String book, String page) {
+        new Thread(() -> {
+            try {
+                JSONObject result =
+                    performCumberlandDeedLookup(
+                        book,
+                        page
+                    );
+
+                sendDeedResult(result);
+
+            } catch (Exception e) {
+                String message =
+                    e.getMessage();
+
+                if (
+                    message == null ||
+                    message.trim().isEmpty()
+                ) {
+                    message =
+                        "Automatic Cumberland County deed lookup failed.";
+                }
+
+                sendDeedError(message);
+            }
+        }).start();
+    }
+
+    @JavascriptInterface
     public void lookupCamdenDeed(
             String book,
             String page,
@@ -2320,6 +2349,536 @@ private JSONObject performSalemDeedLookup(
     );
 
     return result;
+}
+
+private JSONObject performCumberlandDeedLookup(
+        String book,
+        String page
+) throws Exception {
+
+    if (book == null || page == null) {
+        throw new Exception(
+            "Missing Cumberland County deed book or page."
+        );
+    }
+
+    book = book.trim();
+    page = page.trim();
+
+    if (!book.matches("\\d+") || !page.matches("\\d+")) {
+        throw new Exception(
+            "The stored Cumberland deed book/page is not valid."
+        );
+    }
+
+    String searchBook =
+        book.replaceFirst("^0+(?!$)", "");
+
+    String searchPage =
+        page.replaceFirst("^0+(?!$)", "");
+
+    final String base =
+        "https://countyfusion1.kofiletech.us/countyweb/";
+
+    Map<String,String> cookies =
+        new LinkedHashMap<>();
+
+    // -----------------------------------------------------
+    // 1. Load Cumberland County public login page
+    // -----------------------------------------------------
+
+    DeedHttpResponse response =
+        deedRequest(
+            "GET",
+            base +
+                "loginDisplay.action?countyname=CumberlandNJ",
+            null,
+            cookies
+        );
+
+    // -----------------------------------------------------
+    // 2. Extract legitimate Struts token
+    // -----------------------------------------------------
+
+    Matcher tokenMatcher =
+        Pattern.compile(
+            "(?is)name=[\"']token[\"'][^>]*value=[\"']([^\"']+)[\"']"
+        ).matcher(response.body);
+
+    if (!tokenMatcher.find()) {
+        throw new Exception(
+            "Cumberland County public login token was not found."
+        );
+    }
+
+    String token =
+        deedHtmlDecode(
+            tokenMatcher.group(1)
+        );
+
+    // -----------------------------------------------------
+    // 3. Enter County Fusion public guest session
+    // -----------------------------------------------------
+
+    Map<String,String> fields =
+        new LinkedHashMap<>();
+
+    fields.put("cmd", "login");
+    fields.put("countyname", "CumberlandNJ");
+    fields.put("scriptsupport", "yes");
+    fields.put("apptype", "");
+    fields.put("datasource", "");
+    fields.put("userdatasource", "");
+    fields.put("fraudsleuth", "false");
+    fields.put("guest", "false");
+    fields.put("public", "true");
+    fields.put("startPage", "");
+    fields.put(
+        "CountyFusionForceNewSession",
+        "true"
+    );
+    fields.put(
+        "struts.token.name",
+        "token"
+    );
+    fields.put("token", token);
+    fields.put("username", "");
+    fields.put("password", "");
+
+    response =
+        deedRequest(
+            "POST",
+            base + "login.action",
+            fields,
+            cookies
+        );
+
+    // -----------------------------------------------------
+    // 4. Load and accept public-record disclaimer
+    // -----------------------------------------------------
+
+    response =
+        deedRequest(
+            "GET",
+            base + "disclaimer.do",
+            null,
+            cookies
+        );
+
+    fields =
+        new LinkedHashMap<>();
+
+    fields.put("cmd", "Accept");
+
+    response =
+        deedRequest(
+            "POST",
+            base + "disclaimer.do",
+            fields,
+            cookies
+        );
+
+    // -----------------------------------------------------
+    // 5. Initialize Cumberland public-record search
+    // -----------------------------------------------------
+
+    response =
+        deedRequest(
+            "GET",
+            base +
+                "search/searchMain.do?defaultType=Public",
+            null,
+            cookies
+        );
+
+    response =
+        deedRequest(
+            "GET",
+            base +
+                "search/searchCriteria.do" +
+                "?searchCategory=ADVANCED" +
+                "&dynamic=true" +
+                "&enhanced=true",
+            null,
+            cookies
+        );
+
+    response =
+        deedRequest(
+            "GET",
+            base +
+                "search/dyncriteria/dynCriteria.do" +
+                "?searchType=bookPage" +
+                "&searchCategory=ADVANCED",
+            null,
+            cookies
+        );
+
+    // -----------------------------------------------------
+    // 6. Search exact Book/Page
+    // -----------------------------------------------------
+
+    fields =
+        new LinkedHashMap<>();
+
+    fields.put(
+        "searchCategory",
+        "ADVANCED"
+    );
+    fields.put(
+        "searchSessionId",
+        "searchJobMain"
+    );
+    fields.put("PLATS", "");
+    fields.put("QUARTER", "");
+    fields.put(
+        "SEARCHTYPE",
+        "bookPage"
+    );
+    fields.put(
+        "RECSPERPAGE",
+        "25"
+    );
+    fields.put(
+        "userRefCode",
+        ""
+    );
+    fields.put(
+        "INSTTYPEALL",
+        "selected"
+    );
+    fields.put("INSTTYPE", "");
+    fields.put("CASETYPE", "");
+    fields.put(
+        "ORDERBY_LIST",
+        ""
+    );
+    fields.put("DATERANGE", "");
+    fields.put("BOOK", searchBook);
+    fields.put("PAGE", searchPage);
+
+    response =
+        deedRequest(
+            "POST",
+            base +
+                "search/searchExecute.do?assessor=false",
+            fields,
+            cookies
+        );
+
+    // -----------------------------------------------------
+    // 7. Load actual search-result rows
+    // -----------------------------------------------------
+
+    DeedHttpResponse resultList =
+        deedRequest(
+            "GET",
+            base +
+                "search/CumberlandNJ/" +
+                "docs_SearchResultList.jsp" +
+                "?scrollPos=0" +
+                "&searchSessionId=searchJobMain",
+            null,
+            cookies
+        );
+
+    String resultHtml =
+        resultList.body;
+
+    // -----------------------------------------------------
+    // 8. Locate exact DEED result
+    // -----------------------------------------------------
+
+    Pattern deedRowPattern =
+        Pattern.compile(
+            "(?is)" +
+            "documentRowInfo\\[(\\d+)\\]\\.instId\\s*=\\s*" +
+            "[\"']([^\"']+)[\"']\\s*;" +
+            ".*?" +
+            "documentRowInfo\\[\\1\\]\\.instNum\\s*=\\s*" +
+            "[\"']([^\"']*)[\"']\\s*;" +
+            ".*?" +
+            "documentRowInfo\\[\\1\\]\\.instType\\s*=\\s*" +
+            "[\"']([^\"']*)[\"']\\s*;"
+        );
+
+    Matcher deedRows =
+        deedRowPattern.matcher(
+            resultHtml
+        );
+
+    String instrumentId = null;
+    String instrumentNumber = null;
+    String instrumentType = null;
+
+    while (deedRows.find()) {
+
+        String candidateId =
+            deedHtmlDecode(
+                deedRows.group(2)
+            ).trim();
+
+        String candidateNumber =
+            deedHtmlDecode(
+                deedRows.group(3)
+            ).trim();
+
+        String candidateType =
+            deedHtmlDecode(
+                deedRows.group(4)
+            ).trim();
+
+        if (
+            "DEED".equalsIgnoreCase(
+                candidateType
+            )
+        ) {
+            instrumentId =
+                candidateId;
+
+            instrumentNumber =
+                candidateNumber;
+
+            instrumentType =
+                candidateType;
+
+            break;
+        }
+    }
+
+    if (
+        instrumentId == null ||
+        instrumentId.trim().isEmpty()
+    ) {
+        throw new Exception(
+            "No Cumberland County deed was found for Book " +
+            book +
+            " / Page " +
+            page +
+            "."
+        );
+    }
+
+    // -----------------------------------------------------
+    // 9. Open indexed deed detail
+    // -----------------------------------------------------
+
+    String detailUrl =
+        base +
+        "search/displayDocument.do" +
+        "?searchSessionId=searchJobMain" +
+        "&instId=" +
+        URLEncoder.encode(
+            instrumentId,
+            StandardCharsets.UTF_8.toString()
+        ) +
+        "&instNum=" +
+        URLEncoder.encode(
+            instrumentNumber,
+            StandardCharsets.UTF_8.toString()
+        ) +
+        "&instType=" +
+        URLEncoder.encode(
+            instrumentType,
+            StandardCharsets.UTF_8.toString()
+        ) +
+        "&assocDoc=" +
+        "&assocParentNum=" +
+        "&parcelNum=" +
+        "&assocType=" +
+        "&onloadAction=" +
+        URLEncoder.encode(
+            "parent.documentLoaded();",
+            StandardCharsets.UTF_8.toString()
+        ) +
+        "&show_details=true";
+
+    DeedHttpResponse detailResponse =
+        deedRequest(
+            "GET",
+            detailUrl,
+            null,
+            cookies
+        );
+
+    String detailHtml =
+        detailResponse.body;
+
+    // -----------------------------------------------------
+    // 10. Extract Cumberland 1st Party = Grantor(s)
+    //     and 2nd Party = Grantee(s)
+    // -----------------------------------------------------
+
+    List<String> grantors =
+        extractCumberlandParties(
+            detailHtml,
+            "1st"
+        );
+
+    List<String> grantees =
+        extractCumberlandParties(
+            detailHtml,
+            "2nd"
+        );
+
+    if (grantees.isEmpty()) {
+        throw new Exception(
+            "The deed was found, but Cumberland County did not return a 2nd Party/grantee name."
+        );
+    }
+
+    // -----------------------------------------------------
+    // 11. Return standard Deal Recon deed result
+    // -----------------------------------------------------
+
+    JSONObject result =
+        new JSONObject();
+
+    result.put("success", true);
+    result.put("book", book);
+    result.put("page", page);
+
+    result.put(
+        "ownerName",
+        joinDeedNames(grantees)
+    );
+
+    result.put(
+        "grantees",
+        joinDeedNames(grantees)
+    );
+
+    result.put(
+        "grantors",
+        joinDeedNames(grantors)
+    );
+
+    result.put(
+        "source",
+        "Cumberland County deed index"
+    );
+
+    result.put(
+        "documentId",
+        instrumentId
+    );
+
+    result.put(
+        "instrumentNumber",
+        instrumentNumber
+    );
+
+    result.put(
+        "documentType",
+        instrumentType
+    );
+
+    return result;
+}
+
+private List<String> extractCumberlandParties(
+        String detailHtml,
+        String partyNumber
+) {
+
+    List<String> parties =
+        new ArrayList<>();
+
+    if (
+        detailHtml == null ||
+        detailHtml.trim().isEmpty()
+    ) {
+        return parties;
+    }
+
+    String markerText =
+        partyNumber + " Party:";
+
+    Pattern markerPattern =
+        Pattern.compile(
+            "(?is)<span[^>]*>\\s*" +
+            Pattern.quote(markerText) +
+            "\\s*</span>"
+        );
+
+    Matcher marker =
+        markerPattern.matcher(
+            detailHtml
+        );
+
+    if (!marker.find()) {
+        return parties;
+    }
+
+    int start =
+        marker.end();
+
+    int end =
+        detailHtml.length();
+
+    if ("1st".equalsIgnoreCase(partyNumber)) {
+
+        Matcher nextMarker =
+            Pattern.compile(
+                "(?is)<span[^>]*>\\s*2nd\\s+Party:\\s*</span>"
+            ).matcher(detailHtml);
+
+        if (nextMarker.find(start)) {
+            end =
+                nextMarker.start();
+        }
+    }
+
+    String section =
+        detailHtml.substring(
+            start,
+            end
+        );
+
+    Pattern rowPattern =
+        Pattern.compile(
+            "(?is)<tr[^>]*class=[\"'][^\"']*" +
+            "evenrow[^\"']*[\"'][^>]*>" +
+            "(.*?)</tr>"
+        );
+
+    Matcher rows =
+        rowPattern.matcher(
+            section
+        );
+
+    while (rows.find()) {
+
+        String row =
+            rows.group(1);
+
+        Pattern cellPattern =
+            Pattern.compile(
+                "(?is)<td[^>]*>(.*?)</td>"
+            );
+
+        Matcher cells =
+            cellPattern.matcher(
+                row
+            );
+
+        while (cells.find()) {
+
+            String name =
+                deedStripTags(
+                    cells.group(1)
+                ).trim();
+
+            if (
+                !name.isEmpty() &&
+                !parties.contains(name)
+            ) {
+                parties.add(name);
+            }
+        }
+    }
+
+    return parties;
 }
 
 private void sendDeedResult(JSONObject result) {
