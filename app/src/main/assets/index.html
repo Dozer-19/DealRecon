@@ -861,48 +861,95 @@ function renderPhoneReconCandidates(candidates){
     });
 }
 
-function phoneReconSearch(){
+async function phoneReconSearch(){
     const owner=String($('phOwner')?.value||'').trim();
     const prop=String($('phProp')?.value||'').trim();
     const mail=String($('phMail')?.value||'').trim();
+    const parcel=String($('phParcel')?.value||'').trim();
 
     if(!owner && !prop){
         alert('Load an Owner Recon record or enter an owner/property first.');
         return;
     }
 
-    const candidates=[
-        {
-            owner:owner,
-            phone:'8565551212',
-            phoneType:'Mobile',
-            email:'',
-            source:'PHONE RECON TEST — VERIFIED MATCH',
-            ownerMatch:true,
-            mailingMatch:!!mail,
-            propertyMatch:!!prop
-        },
-        {
-            owner:owner,
-            phone:'9085553434',
-            phoneType:'Mobile',
-            email:'',
-            source:'PHONE RECON TEST — POSSIBLE MATCH',
-            ownerMatch:true,
-            mailingMatch:false,
-            propertyMatch:!!prop
-        }
-    ];
+    renderPhoneReconCandidates([]);
 
-    renderPhoneReconCandidates(candidates);
+    if($('phoneReconCandidates')){
+        $('phoneReconCandidates').innerHTML=
+            '<p class="sub">Searching available contact sources...</p>';
+    }
 
     if($('phoneReconResult')){
         $('phoneReconResult').innerHTML=
-            '<b>TEST MODE:</b> Two contact candidates were generated.<br>'+
-            'Select a candidate using <b>Use This Contact</b>.<br><br>'+
-            '856 should show as a DNC coverage area.<br>'+
-            '908 should show as coverage needed.';
+            '<b>Phone Recon search started.</b><br>'+
+            'Verified Owner: '+esc(owner||'Not recorded')+'<br>'+
+            'Property: '+esc(prop||'Not recorded');
     }
+
+    const request={
+        owner:owner,
+        propertyAddress:prop,
+        mailingAddress:mail,
+        parcelId:parcel
+    };
+
+    try{
+        const candidates=await phoneReconLookup(request);
+
+        renderPhoneReconCandidates(candidates);
+
+        if($('phoneReconResult')){
+            $('phoneReconResult').innerHTML=
+                candidates.length
+                ? '<b>Phone Recon found '+candidates.length+
+                  ' possible contact'+
+                  (candidates.length===1?'':'s')+
+                  '.</b><br>Review the source and confidence before selecting.'
+                : '<b>No contact candidates found.</b><br>'+
+                  'The verified owner record has not been changed.';
+        }
+    }catch(err){
+        console.error('Phone Recon lookup error:',err);
+
+        renderPhoneReconCandidates([]);
+
+        if($('phoneReconResult')){
+            $('phoneReconResult').innerHTML=
+                '<b>Phone Recon lookup could not be completed.</b><br>'+
+                'Owner Recon and the verified deed owner were not changed.';
+        }
+    }
+}
+
+async function phoneReconLookup(request){
+    /*
+      Production contact-source adapter.
+
+      A permitted lookup provider will plug into this function.
+      Do NOT place a private paid-provider API key directly in this APK.
+
+      Expected candidate format:
+
+      {
+          owner: request.owner,
+          phone: '',
+          phoneType: 'Unknown',
+          email: '',
+          source: '',
+          ownerMatch: true,
+          mailingMatch: false,
+          propertyMatch: false
+      }
+    */
+
+    console.log('Phone Recon lookup request prepared:',{
+        owner:request.owner,
+        propertyAddress:request.propertyAddress,
+        mailingAddress:request.mailingAddress,
+        parcelId:request.parcelId
+    });
+
+    return [];
 }
 
 
