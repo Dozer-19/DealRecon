@@ -839,12 +839,26 @@ function renderPhoneReconCandidates(candidates){
             <p>Source: ${esc(c.source||'Not recorded')}</p>
             <p>${esc(coverage)}</p>
 
-            <button class="btn alt"
-                onclick="selectPhoneReconCandidate(${i})">
+            <button class="btn alt phone-recon-use-contact"
+                type="button"
+                data-phone-recon-index="${i}">
                 Use This Contact
             </button>
         </div>`;
     }).join('');
+
+    box.querySelectorAll('.phone-recon-use-contact').forEach(btn=>{
+        btn.addEventListener('click',function(e){
+            e.preventDefault();
+            e.stopPropagation();
+
+            const index=Number(
+                this.getAttribute('data-phone-recon-index')
+            );
+
+            selectPhoneReconCandidate(index);
+        });
+    });
 }
 
 function phoneReconSearch(){
