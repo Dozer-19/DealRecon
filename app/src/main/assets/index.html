@@ -922,25 +922,8 @@ async function phoneReconSearch(){
 }
 
 async function phoneReconLookup(request){
-    /*
-      Production contact-source adapter.
-
-      A permitted lookup provider will plug into this function.
-      Do NOT place a private paid-provider API key directly in this APK.
-
-      Expected candidate format:
-
-      {
-          owner: request.owner,
-          phone: '',
-          phoneType: 'Unknown',
-          email: '',
-          source: '',
-          ownerMatch: true,
-          mailingMatch: false,
-          propertyMatch: false
-      }
-    */
+    const endpoint=
+        'https://deal-recon-phone-recon.dealrecon.workers.dev';
 
     console.log('Phone Recon lookup request prepared:',{
         owner:request.owner,
@@ -949,9 +932,38 @@ async function phoneReconLookup(request){
         parcelId:request.parcelId
     });
 
-    return [];
-}
+    const response=await fetch(endpoint,{
+        method:'POST',
+        headers:{
+            'Content-Type':'application/json'
+        },
+        body:JSON.stringify(request)
+    });
 
+    let data=null;
+
+    try{
+        data=await response.json();
+    }catch(parseError){
+        throw new Error(
+            'Phone Recon backend returned an unreadable response.'
+        );
+    }
+
+    if(!response.ok || !data || data.ok!==true){
+        throw new Error(
+            (data && data.error)
+                ? data.error
+                : 'Phone Recon backend request failed.'
+        );
+    }
+
+    if(!Array.isArray(data.candidates)){
+        return [];
+    }
+
+    return data.candidates;
+}
 
 function savePhoneRecon(){
     const owner=String($('phOwner')?.value||'').trim();
