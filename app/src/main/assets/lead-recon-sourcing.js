@@ -174,7 +174,7 @@ window.normalizeNJLead = function(a) {
     return {
         parcelId: a.PAMS_PIN || "",
         ownerName: a.OWNER_NAME || "",
-        propertyAddress: a.PROP_LOC || "",
+        propertyAddress: [a.PROP_LOC, a.MUN_NAME, "NJ"].filter(Boolean).join(", "),
         municipality: a.MUN_NAME || "",
         county: a.COUNTY || "",
         mailingAddress: [a.ST_ADDRESS, a.CITY_STATE, a.ZIP_CODE].filter(Boolean).join(", "),
