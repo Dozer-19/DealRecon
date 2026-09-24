@@ -14,7 +14,49 @@
   const chosen = () => read('leads').find(row => String(row.id) === el('cmLead').value);
   const campaign = () => read('commCampaigns').find(row => String(row.id) === el('cmCampaign').value);
   const number = value => Math.max(0, Number(value) || 0);
-  const message = text => { el('cmLetter').textContent = text; };
+  const message = text => { el('cmLetterStatus').textContent = text; };
+  let activeLetterKey = '';
+  let letterDirty = false;
+  let saveTimer = null;
+  const letterKey = () => {
+    const lead = chosen();
+    return lead ? String(lead.id) + ':' + el('cmTemplate').value : '';
+  };
+  function saveActiveLetter() {
+    if (!activeLetterKey || !letterDirty) return;
+    const rows = read('commLetters');
+    let draft = rows.find(row => row.key === activeLetterKey);
+    if (!draft) { draft = {key: activeLetterKey}; rows.push(draft); }
+    draft.text = el('cmLetter').value;
+    draft.updatedAt = new Date().toISOString();
+    save('commLetters', rows);
+    letterDirty = false;
+  }
+  window.cmLetterChanged = function () {
+    letterDirty = true;
+    message('Editing draft…');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { saveActiveLetter(); message('Draft saved.'); }, 600);
+  };
+  window.cmSaveLetter = function () {
+    clearTimeout(saveTimer);
+    if (!letterKey()) return message('Select a lead before saving a letter.');
+    if (!el('cmLetter').value.trim()) return message('Enter letter text before saving.');
+    if (activeLetterKey !== letterKey()) window.cmLoadLetter();
+    letterDirty = true;
+    saveActiveLetter();
+    message('Draft saved for this lead and letter type.');
+  };
+  window.cmLoadLetter = function () {
+    clearTimeout(saveTimer);
+    saveActiveLetter();
+    activeLetterKey = letterKey();
+    const lead = chosen();
+    if (!lead) { el('cmLetter').value = ''; return message('Select a lead to write a letter.'); }
+    const draft = read('commLetters').find(row => row.key === activeLetterKey);
+    el('cmLetter').value = draft ? draft.text : letter(lead);
+    message(draft ? 'Saved draft loaded. You can edit it any time.' : 'Starter letter loaded. Edit and save it.');
+  };
   function requireLead() {
     const lead = chosen();
     if (!lead) message('Select a lead first.');
@@ -80,7 +122,7 @@
     window.cmRefresh();
     el('cmLead').value = String(leadId);
     go('comms');
-    window.cmRefresh();
+    window.cmLoadLetter();
   };
   window.cmOpenOwner = function (ownerId) {
     const owner = read('owners').find(row => String(row.id) === String(ownerId));
@@ -101,19 +143,63 @@
     }
     window.cmOpenLead(lead.id);
   };
-  window.cmDraftMail = function () {
+  let aiLetterKey = '';
+  let aiSourceText = '';
+  window.cmEnhanceLetter = function () {
     const lead = requireLead();
-    if (lead) message(letter(lead));
+    if (!lead) return;
+    if (window.aiMode || window.aiDealMode) return message('Another AI request is in progress.');
+    const draft = el('cmLetter').value.trim();
+    if (!draft) return message('Write or load a letter first.');
+    if (!window.DealReconAI || typeof window.DealReconAI.ask !== 'function')
+      return message('The app AI connection is unavailable. Your draft is safe.');
+    if (!window.confirm('AI may incur provider usage charges and will receive this letter text. Send it for a suggestion?'))
+      return message('AI request canceled. Your draft is unchanged.');
+    clearTimeout(saveTimer);
+    saveActiveLetter();
+    aiLetterKey = letterKey();
+    aiSourceText = draft;
+    el('cmAiSuggestion').value = '';
+    message('Asking AI for a letter suggestion…');
+    window.aiMode = 'letter';
+    const prompt = 'Rewrite the following South Jersey real estate owner letter to be clear, concise, personal, and professional. Return only the complete revised letter as plain text. Preserve the addressee, property address, signature, brokerage identity, opt-out language, and all provided facts. Do not invent offers, prices, buyer commitments, legal claims, or urgency. Leave any disclosure review placeholder in place. The agent will review before sending.\n\nLETTER:\n' + draft;
+    try { window.DealReconAI.ask(prompt); }
+    catch (error) { window.aiMode = null; window.cmAIError(error.message); }
   };
+  window.cmAIResult = function (text) {
+    if (aiLetterKey !== letterKey()) return message('AI suggestion arrived for another lead. Reopen that lead to request a new suggestion.');
+    el('cmAiSuggestion').value = String(text || '').trim();
+    message(el('cmAiSuggestion').value ? 'Review the suggestion, then choose Use AI suggestion if you like it.' : 'AI returned no suggestion. Your draft is unchanged.');
+  };
+  window.cmAIError = function () {
+    message('AI could not improve this letter right now. Your draft is unchanged.');
+  };
+  window.cmApplySuggestion = function () {
+    if (!aiLetterKey || aiLetterKey !== letterKey()) return message('This suggestion belongs to another lead or letter type.');
+    const suggested = el('cmAiSuggestion').value.trim();
+    if (!suggested) return message('There is no AI suggestion to use.');
+    if (el('cmLetter').value.trim() !== aiSourceText &&
+        !window.confirm('You edited the draft after requesting AI. Replace your newer edits with this suggestion?'))
+      return message('Your newer draft was kept.');
+    el('cmLetter').value = suggested;
+    window.cmLetterChanged();
+    window.cmSaveLetter();
+    message('AI suggestion applied and saved. Review before mailing.');
+  };
+  window.cmDraftMail = function () { window.cmLoadLetter(); };
   window.cmLogMail = function () {
     const lead = requireLead();
     if (!lead) return;
     if (lead.mailOptOut) return message('This lead opted out of mail. No mailing recorded.');
-    const draft = letter(lead);
-    message(draft);
-    if (!lead.mailingAddress) return;
+    if (!lead.mailingAddress) return message('A verified mailing address is required.');
+    if (activeLetterKey !== letterKey()) window.cmLoadLetter();
+    clearTimeout(saveTimer);
+    saveActiveLetter();
+    const draft = el('cmLetter').value.trim();
+    if (!draft) return message('Write and save a letter before logging a mailing.');
     if (!window.confirm('Confirm this letter was physically mailed? This records the event and cost only.')) return;
-    record('mail', lead, {template: el('cmTemplate').value, cost: number(el('cmMailCost').value)});
+    record('mail', lead, {template: el('cmTemplate').value, letterText: draft, cost: number(el('cmMailCost').value)});
+    message('Mailing recorded with the exact letter text. No mail was sent by the app.');
     queue(lead, 'Review response to mailed letter', 14);
     window.cmRefresh();
   };
