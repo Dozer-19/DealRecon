@@ -39,6 +39,7 @@ jobs:
           node --check app/src/main/assets/communications-v3.js
           node --check app/src/main/assets/ai-test.js
           node tests/communications-v3.test.js
+          node tests/phone-recon-worker.test.mjs
 
       - name: Restore signing keystore
         run: echo "${{ secrets.DEALRECON_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/dealrecon-release.keystore"
