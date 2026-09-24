@@ -212,6 +212,50 @@
     el('cmName').value = '';
     window.cmRefresh();
   };
+  const cadence = [
+    {day: 3, task: 'Review first contact and owner response'},
+    {day: 10, task: 'Review follow-up options and suppression status'},
+    {day: 21, task: 'Review campaign outcome and next step'}
+  ];
+  window.cmEnrollLead = function () {
+    const lead = requireLead();
+    const selected = campaign();
+    if (!lead || !selected) return message('Select a lead and an active campaign.');
+    if (!selected.active) return message('Resume this campaign before enrolling a lead.');
+    if (/not interested/i.test(String(lead.status || '')))
+      return message('This lead is marked Not Interested. Enrollment was blocked.');
+    const rows = read('commEnrollments');
+    if (rows.some(row => String(row.campaignId) === String(selected.id) &&
+        String(row.leadId) === String(lead.id) && row.active))
+      return message('This lead is already enrolled in this campaign.');
+    const entry = {id: id(), campaignId: selected.id, leadId: lead.id,
+      enrolledAt: new Date().toISOString(), active: true};
+    rows.push(entry);
+    save('commEnrollments', rows);
+    const tasks = read('commFollowups');
+    cadence.forEach(step => tasks.push({id: id(), leadId: lead.id,
+      campaignId: selected.id, enrollmentId: entry.id, source: 'campaign-cadence',
+      task: step.task, due: dayAfter(step.day), done: false}));
+    save('commFollowups', tasks);
+    window.cmRefresh();
+    message('Lead enrolled. Three review tasks were scheduled; no outreach was sent.');
+  };
+  window.cmUnenrollLead = function () {
+    const lead = requireLead();
+    const selected = campaign();
+    if (!lead || !selected) return message('Select a lead and a campaign.');
+    const rows = read('commEnrollments');
+    const current = rows.filter(row => String(row.campaignId) === String(selected.id) &&
+      String(row.leadId) === String(lead.id) && row.active);
+    if (!current.length) return message('This lead is not enrolled in the selected campaign.');
+    current.forEach(row => { row.active = false; row.endedAt = new Date().toISOString(); });
+    save('commEnrollments', rows);
+    const enrollmentIds = new Set(current.map(row => String(row.id)));
+    save('commFollowups', read('commFollowups').filter(row =>
+      row.done || row.source !== 'campaign-cadence' || !enrollmentIds.has(String(row.enrollmentId))));
+    window.cmRefresh();
+    message('Lead removed. Uncompleted campaign review tasks were canceled.');
+  };
   window.cmToggleCampaign = function (campaignId) {
     const rows = read('commCampaigns');
     const item = rows.find(row => String(row.id) === String(campaignId));
@@ -249,20 +293,22 @@
   window.cmRefresh = function () {
     const leads = read('leads');
     const campaigns = read('commCampaigns');
+    const enrollments = read('commEnrollments').filter(row => row.active);
     const oldLead = el('cmLead').value;
     const oldCampaign = el('cmCampaign').value;
     el('cmLead').innerHTML = '<option value="">Select a lead</option>' + leads.map(row =>
       `<option value="${esc(row.id)}">${esc(row.name || 'Owner')} — ${esc(row.prop || 'No property')}</option>`).join('');
     el('cmLead').value = oldLead;
-    el('cmCampaign').innerHTML = '<option value="">Unassigned</option>' + campaigns.filter(row => row.active).map(row =>
-      `<option value="${esc(row.id)}">${esc(row.name)}</option>`).join('');
+    el('cmCampaign').innerHTML = '<option value="">Unassigned</option>' + campaigns.map(row =>
+      `<option value="${esc(row.id)}">${esc(row.name)}${row.active ? '' : ' (Paused)'}</option>`).join('');
     el('cmCampaign').value = oldCampaign;
     el('cmCampaignList').innerHTML = campaigns.map(row =>
-      `<div class="item"><b>${esc(row.name)}</b> • ${row.active ? 'Active' : 'Paused'} • Budget ${money(number(row.budget))} <button class="btn alt" onclick="cmToggleCampaign(${Number(row.id)})">${row.active ? 'Pause' : 'Resume'}</button></div>`).join('') || '<p class="sub">No campaigns yet.</p>';
+      `<div class="item"><b>${esc(row.name)}</b> • ${row.active ? 'Active' : 'Paused'} • ${enrollments.filter(item => String(item.campaignId) === String(row.id)).length} enrolled • Budget ${money(number(row.budget))} <button class="btn alt" onclick="cmToggleCampaign(${Number(row.id)})">${row.active ? 'Pause' : 'Resume'}</button></div>`).join('') || '<p class="sub">No campaigns yet.</p>';
     const leadName = leadId => leads.find(row => String(row.id) === String(leadId))?.name || 'Deleted lead';
     const tasks = read('commFollowups').filter(row => !row.done).sort((a, b) => String(a.due).localeCompare(String(b.due)));
+    if (el('dFollowups')) el('dFollowups').textContent = tasks.filter(row => row.due <= today()).length;
     el('cmFollowups').innerHTML = tasks.map(row =>
-      `<div class="item"><b>${esc(row.due)}</b> • ${esc(leadName(row.leadId))}<p>${esc(row.task)}</p><button class="btn alt" onclick="cmCompleteFollowup(${Number(row.id)})">Complete</button></div>`).join('') || '<p class="sub">No open follow-ups.</p>';
+      `<div class="item"><b>${esc(row.due)}</b> • ${esc(leadName(row.leadId))}<p>${esc(row.task)}</p><p>${esc(read('leads').find(lead => String(lead.id) === String(row.leadId))?.dnc === 'Do Not Call' ? 'Do Not Call: do not phone' : '')}${esc(read('leads').find(lead => String(lead.id) === String(row.leadId))?.mailOptOut ? ' • Mail opt-out' : '')}</p><button class="btn alt" onclick="cmCompleteFollowup(${Number(row.id)})">Complete</button></div>`).join('') || '<p class="sub">No open follow-ups.</p>';
     const activity = read('commActivity');
     const selected = campaign()?.id || null;
     const scoped = selected ? activity.filter(row => String(row.campaignId) === String(selected)) : activity;

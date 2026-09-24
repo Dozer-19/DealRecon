@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ids = ['cmLead','cmCampaign','cmLetter','cmOutcome','cmCallNotes','cmTemplate','cmMailCost',
   'cmName','cmBudget','cmCampaignList','cmDue','cmTask','cmFollowups','cmConversion','cmRevenue',
-  'cmMetrics','cmActivity','cmLetterStatus','cmAiSuggestion'];
+  'cmMetrics','cmActivity','cmLetterStatus','cmAiSuggestion','dFollowups'];
 const nodes = Object.fromEntries(ids.map(key => [key, {value: '', innerHTML: '', textContent: ''}]));
 const storage = {owners: [{id: 2, name: 'New Owner', prop: '12 Oak St', mail: 'PO Box 22'}], leads: [{id: 12, name: 'Owner', prop: '123 Main', phone: '8565550100',
   mailingAddress: 'PO Box 5', dnc: 'Unknown'}]};
@@ -70,4 +70,17 @@ assert.equal(storage.leads[0].mailOptOut, true);
 const mailCount = storage.commActivity.length;
 context.window.cmLogMail();
 assert.equal(storage.commActivity.length, mailCount, 'opted-out lead must not log a mailing');
+nodes.cmCampaign.value = String(storage.commCampaigns[0].id);
+context.window.cmEnrollLead();
+assert.equal(storage.commEnrollments.filter(row => row.active).length, 1);
+assert.equal(storage.commFollowups.filter(row => row.source === 'campaign-cadence').length, 3);
+context.window.cmEnrollLead();
+assert.equal(storage.commFollowups.filter(row => row.source === 'campaign-cadence').length, 3, 'enrollment is idempotent');
+context.window.cmUnenrollLead();
+assert.equal(storage.commEnrollments.filter(row => row.active).length, 0);
+assert.equal(storage.commFollowups.filter(row => row.source === 'campaign-cadence').length, 0);
+storage.leads.find(row => row.id === 12).status = 'Not Interested';
+nodes.cmLead.value = '12';
+context.window.cmEnrollLead();
+assert.equal(storage.commEnrollments.filter(row => row.active).length, 0, 'do not enroll uninterested lead');
 console.log('Communications workflow checks passed');
