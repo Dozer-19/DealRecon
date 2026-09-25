@@ -1,4 +1,5 @@
-// Phone Recon replacement Worker. Provider requests are disabled until a reviewed adapter is added.
+// Phone Recon replacement Worker. Provider requests remain disabled by default.
+import {enrichContact} from './enformion.mjs';
 const FIREBASE_PROJECT = 'deal-recon';
 const KEY_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 const decoder = new TextDecoder();
@@ -70,6 +71,7 @@ export async function handleRequest(request, env, deps = {}) {
   const allowed = String(env.ALLOWED_FIREBASE_UIDS || '').split(',').map(x => x.trim()).filter(Boolean);
   if (!allowed.length || !allowed.includes(user.sub)) return reply(403, 'Not authorized', cors);
   if (env.LOOKUPS_ENABLED !== 'true') return reply(503, 'Contact lookup is paused', cors);
+  if (!env.ENFORMION_AP_NAME || !env.ENFORMION_AP_PASSWORD) return reply(503, 'Provider connection is not configured', cors);
   if (!env.PHONE_RECON_QUOTA) return reply(503, 'Usage limit unavailable', cors);
   let raw;
   try { raw = await request.text(); } catch { return reply(400, 'Invalid request', cors); }
@@ -84,8 +86,13 @@ export async function handleRequest(request, env, deps = {}) {
     maxDaily: Math.min(Math.max(Number(env.MAX_DAILY_LOOKUPS) || 0, 0), 100),
     maxMonthly: Math.min(Math.max(Number(env.MAX_MONTHLY_LOOKUPS) || 0, 0), 1000)})});
   if (!quota.ok) return reply(quota.status === 429 ? 429 : 503, quota.status === 429 ? 'Daily or monthly limit reached' : 'Usage limit unavailable', cors);
-  // A provider adapter must be reviewed and explicitly enabled before deployment.
-  return reply(503, 'Provider connection is not configured', cors);
+  try {
+    const result = await enrichContact(lookup, env, deps.fetchProvider);
+    return new Response(JSON.stringify(result), {status: 200, headers: {
+      'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...cors}});
+  } catch {
+    return reply(502, 'Phone Recon provider could not be reached', cors);
+  }
 }
 export class PhoneReconQuota {
   constructor(ctx) { this.ctx = ctx; }
