@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - develop/v3-communications
 
 jobs:
   build:
@@ -32,6 +33,14 @@ jobs:
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
           unzip -q gradle-8.11.1-bin.zip
+
+      - name: Check V3 JavaScript
+        run: |
+          node --check app/src/main/assets/communications-v3.js
+          node --check app/src/main/assets/ai-test.js
+          node tests/communications-v3.test.js
+          node tests/phone-recon-worker.test.mjs
+          node tests/phone-recon-secure-client.test.mjs
 
       - name: Restore signing keystore
         run: echo "${{ secrets.DEALRECON_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/dealrecon-release.keystore"
