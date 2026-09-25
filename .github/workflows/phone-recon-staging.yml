@@ -2,6 +2,11 @@ name: Deploy Phone Recon V3 staging (lookups off)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - develop/v3-communications
+    paths:
+      - .github/workflows/phone-recon-staging.yml
 
 permissions:
   contents: read
@@ -32,5 +37,5 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           test -n "$CLOUDFLARE_API_TOKEN"
-          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]]
           npx --yes wrangler@4.137.0 deploy --config wrangler.toml

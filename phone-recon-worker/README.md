@@ -18,9 +18,9 @@ Run the local security checks with `node tests/phone-recon-worker.test.mjs`. Thi
 
 ## Staging deployment access
 
-The supplied production `wrangler.jsonc` names `deal-recon-phone-recon` and contains no account ID. The V3 `wrangler.toml` deliberately uses a different name, `deal-recon-phone-recon-v3`. The manual GitHub Actions workflow `.github/workflows/phone-recon-staging.yml` runs only from `develop/v3-communications`, tests locally, confirms that lookups and quotas are off, and then deploys the separate Worker. It does not configure Enformion credentials. It will fail safely until both of these repository Actions secrets exist:
+The supplied production `wrangler.jsonc` names `deal-recon-phone-recon` and contains no account ID. The V3 `wrangler.toml` deliberately uses a different name, `deal-recon-phone-recon-v3`. The GitHub Actions workflow `.github/workflows/phone-recon-staging.yml` runs only from `develop/v3-communications` when this workflow file changes (or by manual dispatch after GitHub registers the workflow), tests locally, confirms that lookups and quotas are off, and then deploys the separate Worker. It does not configure Enformion credentials. It will fail safely until both of these repository Actions secrets exist:
 
 - `CLOUDFLARE_V3_STAGING_API_TOKEN`: a dedicated, least-privilege Cloudflare API token with permission to deploy Workers in the intended account. Never paste it in chat or commit it to the repository.
 - `CLOUDFLARE_ACCOUNT_ID`: account identifier from Cloudflare. Store it as an Actions secret for simple setup.
 
-The workflow is manual; adding the secrets does not deploy anything by itself. Keep access to the development branch restricted to trusted collaborators while the deployment token exists. Rotate or remove the token when it is no longer needed. No live production Worker or Android endpoint is targeted by this workflow.
+Adding the secrets does not deploy anything by itself; changing the staging workflow file on the V3 branch triggers a staging deployment. Keep access to the development branch restricted to trusted collaborators while the deployment token exists. Rotate or remove the token when it is no longer needed. No live production Worker or Android endpoint is targeted by this workflow.
