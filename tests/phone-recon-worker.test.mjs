@@ -20,7 +20,8 @@ const fetchKeys = async () => new Response(JSON.stringify({keys: [jwk]}),
 assert.equal((await verifyFirebaseIdToken(await token(), fetchKeys)).sub, 'approved-user');
 await assert.rejects(verifyFirebaseIdToken(await token({aud: 'other'}), fetchKeys));
 await assert.rejects(verifyFirebaseIdToken(await token({exp: now - 1}), fetchKeys));
-await assert.rejects(verifyFirebaseIdToken((await token()).replace(/.$/, 'x'), fetchKeys));
+{ const parts = (await token()).split('.'); parts[2] = (parts[2][0] === 'A' ? 'B' : 'A') + parts[2].slice(1);
+  await assert.rejects(verifyFirebaseIdToken(parts.join('.'), fetchKeys)); }
 const body = JSON.stringify({owner: 'Test Owner', propertyAddress: '123 Test St'});
 const request = (auth, content = body) => new Request('https://worker.test/', {method: 'POST',
   headers: {'Content-Type': 'application/json', ...(auth ? {Authorization: 'Bearer ' + auth} : {})}, body: content});
