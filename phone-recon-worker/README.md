@@ -15,3 +15,12 @@ The staged `secure-client.mjs` attaches the signed-in Firebase ID token and vali
 Before any cutover: review the Cloudflare account configuration, provider terms, billing and logs; choose a monthly spending limit; verify authenticated preflight behavior in Android; then deploy this replacement to a separate staging URL with `LOOKUPS_ENABLED=false`. Only after end-to-end testing and explicit approval for paid lookups should the Android client use that URL and the provider be enabled. Do not put a credential in source code or a public build.
 
 Run the local security checks with `node tests/phone-recon-worker.test.mjs`. This test generates a temporary RSA key and makes no external requests.
+
+## Staging deployment access
+
+The supplied production `wrangler.jsonc` names `deal-recon-phone-recon` and contains no account ID. The V3 `wrangler.toml` deliberately uses a different name, `deal-recon-phone-recon-v3`. The manual GitHub Actions workflow `.github/workflows/phone-recon-staging.yml` runs only from `develop/v3-communications`, tests locally, confirms that lookups and quotas are off, and then deploys the separate Worker. It does not configure Enformion credentials. It will fail safely until both of these repository Actions secrets exist:
+
+- `CLOUDFLARE_V3_STAGING_API_TOKEN`: a dedicated, least-privilege Cloudflare API token with permission to deploy Workers in the intended account. Never paste it in chat or commit it to the repository.
+- `CLOUDFLARE_ACCOUNT_ID`: account identifier from Cloudflare. Store it as an Actions secret for simple setup.
+
+The workflow is manual; adding the secrets does not deploy anything by itself. Keep access to the development branch restricted to trusted collaborators while the deployment token exists. Rotate or remove the token when it is no longer needed. No live production Worker or Android endpoint is targeted by this workflow.

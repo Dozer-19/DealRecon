@@ -1,0 +1,36 @@
+name: Deploy Phone Recon V3 staging (lookups off)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    if: github.ref == 'refs/heads/develop/v3-communications'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout V3 branch
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test Worker locally
+        run: |
+          node tests/phone-recon-worker.test.mjs
+          node tests/phone-recon-secure-client.test.mjs
+      - name: Confirm staging configuration cannot call provider
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; const s=fs.readFileSync('phone-recon-worker/wrangler.toml','utf8'); if (!/^name = \"deal-recon-phone-recon-v3\"$/m.test(s) || !/^LOOKUPS_ENABLED = \"false\"$/m.test(s) || !/^MAX_DAILY_LOOKUPS = \"0\"$/m.test(s) || !/^MAX_MONTHLY_LOOKUPS = \"0\"$/m.test(s)) process.exit(1)"
+      - name: Deploy separate staging Worker
+        working-directory: phone-recon-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_V3_STAGING_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx --yes wrangler@4.137.0 deploy --config wrangler.toml
