@@ -78,7 +78,9 @@ Phone Recon keeps the property and verified owner connected to the same Lead Rec
 <div class="actions">
 <button class="btn" onclick="phoneReconSearch()">Find Contact</button>
 <button class="btn alt" onclick="clearPhoneRecon()">Clear</button>
+<button class="btn alt" onclick="checkSecurePhoneRecon()">Check V3 Connection</button>
 </div>
+<p class="sub" id="phoneReconConnectionStatus" role="status">V3 secure contact lookup is in staging.</p>
 
 </div>
 
@@ -933,13 +935,6 @@ async function phoneReconLookup(request){
     const endpoint=
         'https://deal-recon-phone-recon.dealrecon.workers.dev';
 
-    console.log('Phone Recon lookup request prepared:',{
-        owner:request.owner,
-        propertyAddress:request.propertyAddress,
-        mailingAddress:request.mailingAddress,
-        parcelId:request.parcelId
-    });
-
     const response=await fetch(endpoint,{
         method:'POST',
         headers:{
@@ -971,6 +966,33 @@ async function phoneReconLookup(request){
     }
 
     return data.candidates;
+}
+
+// Diagnostic request uses only sample data. Staging has provider lookups disabled.
+async function checkSecurePhoneRecon(){
+    const status=$('phoneReconConnectionStatus');
+    status.textContent='Checking your secure V3 connection...';
+    const user=drAuth.currentUser;
+    if(!user){status.textContent='Sign in to check the V3 connection.';return;}
+    try{
+        const token=await user.getIdToken();
+        const response=await fetch('https://deal-recon-phone-recon-v3.dealrecon.workers.dev/',{
+            method:'POST',
+            headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+            body:JSON.stringify({owner:'Staging Test',propertyAddress:'123 Example Street'})
+        });
+        if(response.status===403){
+            status.textContent='V3 service reached. Account access is pending.';
+        }else if(response.status===503){
+            status.textContent='V3 service reached. Contact searches are paused in staging.';
+        }else if(response.status===401){
+            status.textContent='V3 sign-in was rejected. Sign out and back in, then retry.';
+        }else{
+            status.textContent='V3 connection returned status '+response.status+'.';
+        }
+    }catch(error){
+        status.textContent='V3 connection unavailable. Try again when online.';
+    }
 }
 
 function savePhoneRecon(){
