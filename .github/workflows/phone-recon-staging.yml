@@ -39,3 +39,19 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN"
           [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]]
           npx --yes wrangler@4.137.0 deploy --config wrangler.toml
+      - name: Verify staging rejects unauthenticated requests
+        run: |
+          set -euo pipefail
+          url='https://deal-recon-phone-recon-v3.dealrecon.workers.dev/'
+          for attempt in 1 2 3 4 5; do
+            status=$(curl --silent --show-error --output "$RUNNER_TEMP/get.json" --write-out '%{http_code}' --max-time 10 "$url") || status=000
+            if [[ "$status" == 405 ]]; then break; fi
+            sleep 2
+          done
+          test "$status" = 405
+          status=$(curl --silent --show-error --output "$RUNNER_TEMP/post.json" --write-out '%{http_code}' --max-time 10 \
+            --request POST --header 'Content-Type: application/json' \
+            --data '{"owner":"Test Owner","propertyAddress":"123 Test St"}' "$url")
+          test "$status" = 401
+          node -e "const fs=require('fs');const a=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/get.json'));const b=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/post.json'));if(a.ok!==false||b.ok!==false||b.error!=='Sign in required')process.exit(1)"
+          echo 'Staging Worker rejects GET and unsigned contact requests as expected.'
