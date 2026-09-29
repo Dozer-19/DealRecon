@@ -286,9 +286,17 @@
   window.cmLogConversion = function () {
     const lead = requireLead();
     if (!lead) return;
-    record('conversion', lead, {outcome: el('cmConversion').value,
-      revenue: number(el('cmRevenue').value), cost: 0});
-    message('Conversion recorded. Revenue is attributed to the selected campaign.');
+    const campaignId = campaign()?.id || null;
+    const rows = read('commActivity');
+    const previous = rows.find(row => row.kind === 'conversion' &&
+      String(row.leadId) === String(lead.id) && String(row.campaignId) === String(campaignId));
+    const details = {outcome: el('cmConversion').value,
+      revenue: number(el('cmRevenue').value), cost: 0, date: new Date().toISOString()};
+    if (previous) Object.assign(previous, details);
+    else rows.unshift({id: id(), kind: 'conversion', leadId: lead.id, campaignId, ...details});
+    save('commActivity', rows);
+    window.cmRefresh();
+    message('Conversion saved. Revenue is attributed once to the selected campaign.');
   };
   window.cmRefresh = function () {
     const leads = read('leads');
@@ -315,11 +323,14 @@
     const cost = scoped.reduce((sum, row) => sum + number(row.cost), 0);
     const revenue = scoped.reduce((sum, row) => sum + number(row.revenue), 0);
     const responses = new Set(scoped.filter(row => row.kind === 'conversion' && row.outcome === 'Response').map(row => row.leadId)).size;
-    const clients = new Set(scoped.filter(row => row.kind === 'conversion' && row.outcome === 'Client').map(row => row.leadId)).size;
+    const clientIds = new Set(scoped.filter(row => row.kind === 'conversion' && row.outcome === 'Client').map(row => String(row.leadId)));
+    const clients = clientIds.size;
     const outreach = scoped.filter(row => row.kind === 'call' || row.kind === 'mail').length;
-    const reached = new Set(scoped.filter(row => row.kind === 'call' || row.kind === 'mail').map(row => row.leadId)).size;
+    const reachedIds = new Set(scoped.filter(row => row.kind === 'call' || row.kind === 'mail').map(row => String(row.leadId)));
+    const reached = reachedIds.size;
+    const convertedReached = [...clientIds].filter(leadId => reachedIds.has(leadId)).length;
     const roi = cost ? ((revenue - cost) / cost * 100).toFixed(1) + '%' : 'N/A (no cost logged)';
-    el('cmMetrics').innerHTML = `<div class="metrics"><div class="metric"><small>Outreach logged</small><strong>${outreach}</strong></div><div class="metric"><small>Responses</small><strong>${responses}</strong></div><div class="metric"><small>Clients</small><strong>${clients}</strong></div><div class="metric"><small>Cost / revenue</small><strong>${money(cost)} / ${money(revenue)}</strong></div></div><p>Client conversion: ${reached ? (clients / reached * 100).toFixed(1) + '%' : 'N/A'} of ${reached} leads reached • ROI: ${roi}</p>`;
+    el('cmMetrics').innerHTML = `<div class="metrics"><div class="metric"><small>Outreach logged</small><strong>${outreach}</strong></div><div class="metric"><small>Responses</small><strong>${responses}</strong></div><div class="metric"><small>Clients</small><strong>${clients}</strong></div><div class="metric"><small>Cost / revenue</small><strong>${money(cost)} / ${money(revenue)}</strong></div></div><p>Client conversion: ${reached ? (convertedReached / reached * 100).toFixed(1) + '%' : 'N/A'} of ${reached} leads reached • ROI: ${roi}</p>`;
     el('cmActivity').innerHTML = scoped.slice(0, 30).map(row =>
       `<div class="item">${esc(row.date?.slice(0, 10) || '')} • ${esc(row.kind)} • ${esc(leadName(row.leadId))} • ${esc(row.outcome || row.template || '')}</div>`).join('');
   };

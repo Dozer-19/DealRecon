@@ -48,6 +48,12 @@ nodes.cmRevenue.value = '5000';
 context.window.cmLogConversion();
 assert.match(nodes.cmMetrics.innerHTML, /Client conversion/);
 assert.match(nodes.cmMetrics.innerHTML, /5000/);
+nodes.cmRevenue.value = '5200';
+context.window.cmLogConversion();
+assert.equal(storage.commActivity.filter(row => row.kind === 'conversion').length, 1,
+  'updating a conversion must not count revenue twice');
+assert.match(nodes.cmMetrics.innerHTML, /5200/);
+assert.doesNotMatch(nodes.cmMetrics.innerHTML, /10200/);
 storage.leads[0].dnc = 'Do Not Call';
 const before = storage.commActivity.length;
 context.window.cmLogCall();
