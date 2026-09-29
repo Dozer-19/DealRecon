@@ -195,11 +195,15 @@
     if (!lead) return;
     if (lead.mailOptOut) return message('This lead opted out of mail. No mailing recorded.');
     if (!lead.mailingAddress) return message('A verified mailing address is required.');
-    if (activeLetterKey !== letterKey()) window.cmLoadLetter();
+    if (activeLetterKey !== letterKey())
+      return message('Load and review the letter for this lead before logging a mailing.');
     clearTimeout(saveTimer);
     saveActiveLetter();
     const draft = el('cmLetter').value.trim();
     if (!draft) return message('Write and save a letter before logging a mailing.');
+    const savedDraft = read('commLetters').find(row => row.key === activeLetterKey);
+    if (!savedDraft || savedDraft.text.trim() !== draft)
+      return message('Save this lead’s letter before logging a mailing.');
     if (!window.confirm('Confirm this letter was physically mailed? This records the event and cost only.')) return;
     record('mail', lead, {template: el('cmTemplate').value, letterText: draft, cost: number(el('cmMailCost').value)});
     message('Mailing recorded with the exact letter text. No mail was sent by the app.');

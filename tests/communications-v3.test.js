@@ -25,6 +25,9 @@ assert.equal(storage.commFollowups.length, 1);
 nodes.cmTemplate.value = 'absentee';
 context.window.cmDraftMail();
 assert.match(nodes.cmLetter.value, /123 Main/);
+context.window.cmLogMail();
+assert.equal((storage.commActivity || []).filter(row => row.kind === 'mail').length, 0,
+  'a starter letter must be reviewed and saved before logging mail');
 nodes.cmLetter.value = 'Dear Owner,\nCustom offer for 123 Main.\nKen LePosa';
 context.window.cmSaveLetter();
 assert.equal(storage.commLetters[0].text, nodes.cmLetter.value);
@@ -62,6 +65,13 @@ assert.match(nodes.cmAiSuggestion.value, /Improved version/);
 assert.match(nodes.cmLetter.value, /Custom offer/, 'AI suggestion waits for review');
 context.window.cmApplySuggestion();
 assert.match(storage.commLetters[0].text, /Improved version/);
+storage.leads.push({id: 14, name: 'Third owner', prop: '14 Pine', mailingAddress: 'PO Box 14'});
+nodes.cmLead.value = '14';
+context.window.cmLogMail();
+assert.equal(storage.commActivity.filter(row => row.kind === 'mail').length, 0,
+  'switching leads cannot record the previous lead’s letter as mailed');
+nodes.cmLead.value = '12';
+storage.leads.pop();
 nodes.cmMailCost.value = '1.25';
 context.window.cmLogMail();
 assert.equal(storage.commActivity[0].cost, 1.25);
