@@ -28,7 +28,7 @@ const request = (auth, content = body) => new Request('https://worker.test/', {m
   headers: {'Content-Type': 'application/json', ...(auth ? {Authorization: 'Bearer ' + auth} : {})}, body: content});
 const env = {ALLOWED_FIREBASE_UIDS: 'approved-user', LOOKUPS_ENABLED: 'false'};
 assert.equal((await handleRequest(request(null), env, {fetchKeys})).status, 401);
-assert.equal((await handleRequest(request(await token({sub: 'outsider'})), env, {fetchKeys})).status, 403);
+assert.equal((await handleRequest(request(await token({sub: 'outsider'})), env, {fetchKeys})).status, 503);
 assert.equal((await handleRequest(request(await token()), env, {fetchKeys})).status, 503);
 assert.equal((await handleRequest(request(await token(), 'invalid json'), env, {fetchKeys})).status, 503,
   'disabled gate must reject before processing lookup');
@@ -64,6 +64,8 @@ const signed = await token();
 const send = () => handleRequest(request(signed, JSON.stringify(sample)), configured,
   {fetchKeys, fetchProvider: mockProvider});
 assert.equal((await handleRequest(request(null), configured, {fetchKeys, fetchProvider: mockProvider})).status, 401);
+assert.equal((await handleRequest(request(await token({sub: 'outsider'})), configured,
+  {fetchKeys, fetchProvider: mockProvider})).status, 403);
 const first = await send();
 assert.equal(first.status, 200, await first.clone().text());
 assert.equal((await first.json()).candidates[0].phone, '5551234567');

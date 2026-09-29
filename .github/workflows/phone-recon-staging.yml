@@ -7,6 +7,8 @@ on:
       - develop/v3-communications
     paths:
       - .github/workflows/phone-recon-staging.yml
+      - phone-recon-worker/**
+      - tests/phone-recon-worker.test.mjs
 
 permissions:
   contents: read

@@ -68,9 +68,10 @@ export async function handleRequest(request, env, deps = {}) {
   let user;
   try { user = await verifyFirebaseIdToken(bearer, deps.fetchKeys); }
   catch { return reply(401, 'Invalid sign-in', cors); }
+  // Paused staging can confirm authentication without enrolling a UID or contacting a provider.
+  if (env.LOOKUPS_ENABLED !== 'true') return reply(503, 'Contact lookup is paused', cors);
   const allowed = String(env.ALLOWED_FIREBASE_UIDS || '').split(',').map(x => x.trim()).filter(Boolean);
   if (!allowed.length || !allowed.includes(user.sub)) return reply(403, 'Not authorized', cors);
-  if (env.LOOKUPS_ENABLED !== 'true') return reply(503, 'Contact lookup is paused', cors);
   if (!env.ENFORMION_AP_NAME || !env.ENFORMION_AP_PASSWORD) return reply(503, 'Provider connection is not configured', cors);
   if (!env.PHONE_RECON_QUOTA) return reply(503, 'Usage limit unavailable', cors);
   let raw;
