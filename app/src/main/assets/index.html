@@ -981,14 +981,18 @@ async function checkSecurePhoneRecon(){
             headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
             body:JSON.stringify({owner:'Staging Test',propertyAddress:'123 Example Street'})
         });
-        if(response.status===403){
+        const result=await response.json().catch(()=>null);
+        if(response.status===403 && result?.error==='Origin rejected'){
+            status.textContent='V3 service reached. App origin needs configuration.';
+        }else if(response.status===403 && result?.error==='Not authorized'){
             status.textContent='V3 service reached. Account access is pending.';
-        }else if(response.status===503){
+        }else if(response.status===503 && result?.error==='Contact lookup is paused'){
             status.textContent='V3 service reached. Contact searches are paused in staging.';
         }else if(response.status===401){
             status.textContent='V3 sign-in was rejected. Sign out and back in, then retry.';
         }else{
-            status.textContent='V3 connection returned status '+response.status+'.';
+            status.textContent='V3 connection returned status '+response.status+
+                (result?.error?' ('+result.error+').':'.');
         }
     }catch(error){
         status.textContent='V3 connection unavailable. Try again when online.';
