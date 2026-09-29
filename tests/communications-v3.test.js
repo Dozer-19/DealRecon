@@ -30,6 +30,29 @@ context.window.cmSaveLetter();
 assert.equal(storage.commLetters[0].text, nodes.cmLetter.value);
 context.window.cmLoadLetter();
 assert.match(nodes.cmLetter.value, /Custom offer/);
+nodes.cmLetter.value = 'A revised draft for the first owner';
+context.window.cmLetterChanged();
+nodes.cmLead.value = '';
+context.window.cmSaveLetter();
+assert.equal(storage.commLetters[0].text, 'Dear Owner,\nCustom offer for 123 Main.\nKen LePosa',
+  'an unselected lead must not change an existing saved draft');
+nodes.cmLead.value = '12';
+context.window.cmSaveLetter();
+assert.equal(storage.commLetters[0].text, 'A revised draft for the first owner');
+storage.leads.push({id: 13, name: 'Other owner', prop: '13 Elm', mailingAddress: 'PO Box 13'});
+nodes.cmLetter.value = 'Unsaved first owner edit';
+context.window.cmLetterChanged();
+nodes.cmLead.value = '13';
+context.window.cmSaveLetter();
+assert.equal(storage.commLetters[0].text, 'Unsaved first owner edit',
+  'switching leads must preserve edits under the original lead');
+assert.equal(storage.commLetters.some(row => row.key.startsWith('13:')), false,
+  'saving during a lead switch must not attach the previous letter to the new lead');
+nodes.cmLead.value = '12';
+context.window.cmLoadLetter();
+storage.leads.pop();
+nodes.cmLetter.value = 'Dear Owner,\nCustom offer for 123 Main.\nKen LePosa';
+context.window.cmSaveLetter();
 context.window.cmEnhanceLetter();
 assert.match(storage.aiPrompt, /Custom offer/);
 assert.match(nodes.cmLetter.value, /Custom offer/, 'AI request must not replace the draft');

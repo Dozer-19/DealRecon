@@ -42,7 +42,10 @@
     clearTimeout(saveTimer);
     if (!letterKey()) return message('Select a lead before saving a letter.');
     if (!el('cmLetter').value.trim()) return message('Enter letter text before saving.');
-    if (activeLetterKey !== letterKey()) window.cmLoadLetter();
+    if (activeLetterKey !== letterKey()) {
+      saveActiveLetter();
+      return message('Lead or letter type changed. Load that letter before saving. Your previous edits were kept.');
+    }
     letterDirty = true;
     saveActiveLetter();
     message('Draft saved for this lead and letter type.');
