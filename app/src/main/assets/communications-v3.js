@@ -81,6 +81,20 @@
   function suppressed(lead) {
     return /do not call/i.test(String(lead.dnc || ''));
   }
+  window.cmUpdateDialer = function () {
+    const lead = chosen();
+    el('cmDialNumber').textContent = lead?.phone ? 'Saved number: ' + lead.phone : 'Select a lead with a saved phone number.';
+    el('cmDialButton').disabled = !lead?.phone || suppressed(lead);
+  };
+  window.cmOpenDialer = function () {
+    const lead = requireLead();
+    if (!lead) return;
+    if (suppressed(lead)) return message('This lead is marked Do Not Call. The dialer was not opened.');
+    const phone = String(lead.phone || '').replace(/[^\d+]/g, '');
+    if (!/^\+?\d{7,15}$/.test(phone)) return message('Save a valid phone number for this lead first.');
+    window.location.href = 'tel:' + phone;
+    message('Phone dialer opened. No call outcome has been recorded.');
+  };
   window.cmLogCall = function () {
     const lead = requireLead();
     if (!lead) return;
@@ -96,6 +110,7 @@
       save('leads', leads);
     } else if (outcome !== 'Appointment') queue(lead, 'Review call outcome and follow up', 3);
     window.cmRefresh();
+    window.cmUpdateDialer();
     message('Call outcome saved. This app did not dial the number.');
   };
   const templates = {
@@ -317,6 +332,7 @@
     el('cmCampaign').innerHTML = '<option value="">Unassigned</option>' + campaigns.map(row =>
       `<option value="${esc(row.id)}">${esc(row.name)}${row.active ? '' : ' (Paused)'}</option>`).join('');
     el('cmCampaign').value = oldCampaign;
+    window.cmUpdateDialer();
     el('cmCampaignList').innerHTML = campaigns.map(row =>
       `<div class="item"><b>${esc(row.name)}</b> • ${row.active ? 'Active' : 'Paused'} • ${enrollments.filter(item => String(item.campaignId) === String(row.id)).length} enrolled • Budget ${money(number(row.budget))} <button class="btn alt" onclick="cmToggleCampaign(${Number(row.id)})">${row.active ? 'Pause' : 'Resume'}</button></div>`).join('') || '<p class="sub">No campaigns yet.</p>';
     const leadName = leadId => leads.find(row => String(row.id) === String(leadId))?.name || 'Deleted lead';

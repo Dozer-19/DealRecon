@@ -3,17 +3,22 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ids = ['cmLead','cmCampaign','cmLetter','cmOutcome','cmCallNotes','cmTemplate','cmMailCost',
   'cmName','cmBudget','cmCampaignList','cmDue','cmTask','cmFollowups','cmConversion','cmRevenue',
-  'cmMetrics','cmActivity','cmLetterStatus','cmAiSuggestion','dFollowups'];
+  'cmMetrics','cmActivity','cmLetterStatus','cmAiSuggestion','dFollowups','cmDialNumber','cmDialButton'];
 const nodes = Object.fromEntries(ids.map(key => [key, {value: '', innerHTML: '', textContent: ''}]));
 const storage = {owners: [{id: 2, name: 'New Owner', prop: '12 Oak St', mail: 'PO Box 22'}], leads: [{id: 12, name: 'Owner', prop: '123 Main', phone: '8565550100',
   mailingAddress: 'PO Box 5', dnc: 'Unknown'}]};
 const context = {document: {getElementById: id => nodes[id]},
   get: key => structuredClone(storage[key] || []), set: (key, value) => {storage[key] = structuredClone(value)},
   esc: value => String(value ?? '').replaceAll('<', '&lt;'), money: value => '$' + value,
-  window: {confirm: () => true, DealReconAI: {ask: prompt => {storage.aiPrompt = prompt}}}, go: () => {}, renderAll: () => {}, console, Date, Math, setTimeout, clearTimeout};
+  window: {confirm: () => true, location: {href: ''}, DealReconAI: {ask: prompt => {storage.aiPrompt = prompt}}}, go: () => {}, renderAll: () => {}, console, Date, Math, setTimeout, clearTimeout};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('app/src/main/assets/communications-v3.js', 'utf8'), context);
 nodes.cmLead.value = '12';
+context.window.cmUpdateDialer();
+assert.equal(nodes.cmDialButton.disabled, false);
+context.window.cmOpenDialer();
+assert.equal(context.window.location.href, 'tel:8565550100');
+assert.equal((storage.commActivity || []).length, 0, 'opening the dialer does not log a call');
 nodes.cmName.value = 'Owner outreach';
 context.window.cmAddCampaign();
 assert.equal(storage.commCampaigns.length, 1);
@@ -89,6 +94,11 @@ assert.match(nodes.cmMetrics.innerHTML, /5200/);
 assert.doesNotMatch(nodes.cmMetrics.innerHTML, /10200/);
 storage.leads[0].dnc = 'Do Not Call';
 const before = storage.commActivity.length;
+context.window.location.href = '';
+context.window.cmUpdateDialer();
+assert.equal(nodes.cmDialButton.disabled, true);
+context.window.cmOpenDialer();
+assert.equal(context.window.location.href, '', 'suppressed leads must not open the dialer');
 context.window.cmLogCall();
 assert.equal(storage.commActivity.length, before);
 context.window.cmOpenOwner(2);
