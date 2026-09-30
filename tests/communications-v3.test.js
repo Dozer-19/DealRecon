@@ -1,6 +1,12 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+process.env.TZ = 'America/New_York';
+let testNow = '2026-09-30T01:15:00Z';
+class TestDate extends Date {
+  constructor(...args) { super(...(args.length ? args : [testNow])); }
+  static now() { return new Date(testNow).getTime(); }
+}
 const ids = ['cmLead','cmCampaign','cmLetter','cmOutcome','cmCallNotes','cmTemplate','cmMailCost',
   'cmName','cmBudget','cmCampaignList','cmDue','cmTask','cmFollowups','cmConversion','cmRevenue',
   'cmMetrics','cmActivity','cmLetterStatus','cmAiSuggestion','dFollowups','cmDialNumber','cmDialButton'];
@@ -10,7 +16,7 @@ const storage = {owners: [{id: 2, name: 'New Owner', prop: '12 Oak St', mail: 'P
 const context = {document: {getElementById: id => nodes[id]},
   get: key => structuredClone(storage[key] || []), set: (key, value) => {storage[key] = structuredClone(value)},
   esc: value => String(value ?? '').replaceAll('<', '&lt;'), money: value => '$' + value,
-  window: {confirm: () => true, location: {href: ''}, DealReconAI: {ask: prompt => {storage.aiPrompt = prompt}}}, go: () => {}, renderAll: () => {}, console, Date, Math, setTimeout, clearTimeout};
+  window: {confirm: () => true, location: {href: ''}, DealReconAI: {ask: prompt => {storage.aiPrompt = prompt}}}, go: () => {}, renderAll: () => {}, console, Date: TestDate, Math, setTimeout, clearTimeout};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('app/src/main/assets/communications-v3.js', 'utf8'), context);
 nodes.cmLead.value = '12';
@@ -26,11 +32,13 @@ assert.equal(nodes.cmDialButton.disabled, false, 'opening a lead refreshes its d
 nodes.cmName.value = 'Owner outreach';
 context.window.cmAddCampaign();
 assert.equal(storage.commCampaigns.length, 1);
+assert.equal(storage.commCampaigns[0].created, '2026-09-29', 'campaign date follows the device calendar, not UTC');
 nodes.cmCampaign.value = String(storage.commCampaigns[0].id);
 nodes.cmOutcome.value = 'Attempted';
 context.window.cmLogCall();
 assert.equal(storage.commActivity[0].kind, 'call');
 assert.equal(storage.commFollowups.length, 1);
+assert.equal(storage.commFollowups[0].due, '2026-10-02', 'evening follow-up uses three local calendar days');
 nodes.cmTemplate.value = 'absentee';
 context.window.cmDraftMail();
 assert.match(nodes.cmLetter.value, /123 Main/);
@@ -152,4 +160,12 @@ storage.leads.find(row => row.id === 12).status = 'Not Interested';
 nodes.cmLead.value = '12';
 context.window.cmEnrollLead();
 assert.equal(storage.commEnrollments.filter(row => row.active).length, 0, 'do not enroll uninterested lead');
+storage.commFollowups.push({id: 999, leadId: 12, task: 'Tomorrow evening check', due: '2026-09-30', done: false});
+context.window.cmRefresh();
+assert.equal(nodes.dFollowups.textContent, 0, 'tomorrow is not due merely because UTC has crossed midnight');
+testNow = '2026-03-08T04:30:00Z'; // March 7 at 11:30 PM, before the DST transition.
+storage.leads.find(row => row.id === 12).dnc = 'Unknown';
+nodes.cmOutcome.value = 'Attempted';
+context.window.cmLogCall();
+assert.equal(storage.commFollowups[0].due, '2026-03-10', 'calendar cadence stays correct across daylight saving time');
 console.log('Communications workflow checks passed');

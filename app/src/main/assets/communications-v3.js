@@ -5,11 +5,13 @@
   const read = key => get(key);
   const save = (key, rows) => set(key, rows);
   const id = () => Date.now() + Math.random();
-  const today = () => new Date().toISOString().slice(0, 10);
+  const localDay = date => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')].join('-');
+  const today = () => localDay(new Date());
   const dayAfter = days => {
     const date = new Date();
     date.setDate(date.getDate() + days);
-    return date.toISOString().slice(0, 10);
+    return localDay(date);
   };
   const chosen = () => read('leads').find(row => String(row.id) === el('cmLead').value);
   const campaign = () => read('commCampaigns').find(row => String(row.id) === el('cmCampaign').value);
