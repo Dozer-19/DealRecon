@@ -305,6 +305,15 @@
     save('commFollowups', rows);
     window.cmRefresh();
   };
+  window.cmOpenFollowup = function (taskId) {
+    const task = read('commFollowups').find(row => String(row.id) === String(taskId));
+    if (!task || !read('leads').some(row => String(row.id) === String(task.leadId)))
+      return message('This follow-up’s lead is no longer available.');
+    window.cmOpenLead(task.leadId);
+    el('cmCampaign').value = task.campaignId ? String(task.campaignId) : '';
+    window.cmRefresh();
+    message('Follow-up opened: ' + task.task + '. Review the lead’s permissions before outreach.');
+  };
   window.cmLogConversion = function () {
     const lead = requireLead();
     if (!lead) return;
@@ -337,9 +346,11 @@
       `<div class="item"><b>${esc(row.name)}</b> • ${row.active ? 'Active' : 'Paused'} • ${enrollments.filter(item => String(item.campaignId) === String(row.id)).length} enrolled • Budget ${money(number(row.budget))} <button class="btn alt" onclick="cmToggleCampaign(${Number(row.id)})">${row.active ? 'Pause' : 'Resume'}</button></div>`).join('') || '<p class="sub">No campaigns yet.</p>';
     const leadName = leadId => leads.find(row => String(row.id) === String(leadId))?.name || 'Deleted lead';
     const tasks = read('commFollowups').filter(row => !row.done).sort((a, b) => String(a.due).localeCompare(String(b.due)));
-    if (el('dFollowups')) el('dFollowups').textContent = tasks.filter(row => row.due <= today()).length;
+    const pausedTask = row => row.campaignId && campaigns.some(item =>
+      String(item.id) === String(row.campaignId) && !item.active);
+    if (el('dFollowups')) el('dFollowups').textContent = tasks.filter(row => row.due <= today() && !pausedTask(row)).length;
     el('cmFollowups').innerHTML = tasks.map(row =>
-      `<div class="item"><b>${esc(row.due)}</b> • ${esc(leadName(row.leadId))}<p>${esc(row.task)}</p><p>${esc(read('leads').find(lead => String(lead.id) === String(row.leadId))?.dnc === 'Do Not Call' ? 'Do Not Call: do not phone' : '')}${esc(read('leads').find(lead => String(lead.id) === String(row.leadId))?.mailOptOut ? ' • Mail opt-out' : '')}</p><button class="btn alt" onclick="cmCompleteFollowup(${Number(row.id)})">Complete</button></div>`).join('') || '<p class="sub">No open follow-ups.</p>';
+      `<div class="item"><b>${esc(row.due)}</b> • ${esc(leadName(row.leadId))}${pausedTask(row) ? ' • Campaign paused' : ''}<p>${esc(row.task)}</p><p>${esc(read('leads').find(lead => String(lead.id) === String(row.leadId))?.dnc === 'Do Not Call' ? 'Do Not Call: do not phone' : '')}${esc(read('leads').find(lead => String(lead.id) === String(row.leadId))?.mailOptOut ? ' • Mail opt-out' : '')}</p><button class="btn alt" onclick="cmOpenFollowup(${Number(row.id)})">Review lead</button> <button class="btn alt" onclick="cmCompleteFollowup(${Number(row.id)})">Complete</button></div>`).join('') || '<p class="sub">No open follow-ups.</p>';
     const activity = read('commActivity');
     const selected = campaign()?.id || null;
     const scoped = selected ? activity.filter(row => String(row.campaignId) === String(selected)) : activity;
