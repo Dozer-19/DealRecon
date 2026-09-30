@@ -11,6 +11,7 @@ import android.webkit.ValueCallback;
 import android.webkit.JavascriptInterface;
 import android.os.Bundle;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -83,8 +84,22 @@ aiFallbackModel = GenerativeModelFutures.from(fallbackModel);
         s.setUseWideViewPort(true);
 webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
         webView.setWebViewClient(new WebViewClient() {
+            private boolean openPhoneDialer(String url) {
+                if (url == null || !url.matches("tel:\\+?[0-9]{7,15}")) return false;
+                startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse(url)));
+                return true;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                if (openPhoneDialer(url)) return true;
+                return shouldOverrideUrlLoading(view, url);
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (openPhoneDialer(url)) return true;
                 if (url != null &&
                     camdenLookupActive &&
                     isCamdenSearchUrl(url)) {

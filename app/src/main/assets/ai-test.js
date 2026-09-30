@@ -98,6 +98,11 @@ If the grantee cannot be read confidently, set ownerName and grantee to an empty
 });
 
 window.onDealReconAIResult = function(text) {
+    if (window.aiMode === "letter") {
+        window.aiMode = null;
+        if (typeof window.cmAIResult === "function") window.cmAIResult(text);
+        return;
+    }
     if (window.aiMode === "deed") {
         try {
             let cleaned = String(text || "").trim();
@@ -190,6 +195,11 @@ window.onDealReconAIResult = function(text) {
 };
 
 window.onDealReconAIError = function(message) {
+    if (window.aiMode === "letter") {
+        window.aiMode = null;
+        if (typeof window.cmAIError === "function") window.cmAIError(message);
+        return;
+    }
     if (window.aiMode === "deed") {
         alert("AI Deed Reader Error:\n\n" + message);
         window.aiMode = null;

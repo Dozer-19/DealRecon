@@ -1,0 +1,171 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+process.env.TZ = 'America/New_York';
+let testNow = '2026-09-30T01:15:00Z';
+class TestDate extends Date {
+  constructor(...args) { super(...(args.length ? args : [testNow])); }
+  static now() { return new Date(testNow).getTime(); }
+}
+const ids = ['cmLead','cmCampaign','cmLetter','cmOutcome','cmCallNotes','cmTemplate','cmMailCost',
+  'cmName','cmBudget','cmCampaignList','cmDue','cmTask','cmFollowups','cmConversion','cmRevenue',
+  'cmMetrics','cmActivity','cmLetterStatus','cmAiSuggestion','dFollowups','cmDialNumber','cmDialButton'];
+const nodes = Object.fromEntries(ids.map(key => [key, {value: '', innerHTML: '', textContent: ''}]));
+const storage = {owners: [{id: 2, name: 'New Owner', prop: '12 Oak St', mail: 'PO Box 22'}], leads: [{id: 12, name: 'Owner', prop: '123 Main', phone: '8565550100',
+  mailingAddress: 'PO Box 5', dnc: 'Unknown'}]};
+const context = {document: {getElementById: id => nodes[id]},
+  get: key => structuredClone(storage[key] || []), set: (key, value) => {storage[key] = structuredClone(value)},
+  esc: value => String(value ?? '').replaceAll('<', '&lt;'), money: value => '$' + value,
+  window: {confirm: () => true, location: {href: ''}, DealReconAI: {ask: prompt => {storage.aiPrompt = prompt}}}, go: () => {}, renderAll: () => {}, console, Date: TestDate, Math, setTimeout, clearTimeout};
+vm.createContext(context);
+vm.runInContext(fs.readFileSync('app/src/main/assets/communications-v3.js', 'utf8'), context);
+nodes.cmLead.value = '12';
+context.window.cmUpdateDialer();
+assert.equal(nodes.cmDialButton.disabled, false);
+context.window.cmOpenDialer();
+assert.equal(context.window.location.href, 'tel:8565550100');
+assert.equal((storage.commActivity || []).length, 0, 'opening the dialer does not log a call');
+nodes.cmLead.value = '';
+context.window.cmRefresh();
+context.window.cmOpenLead(12);
+assert.equal(nodes.cmDialButton.disabled, false, 'opening a lead refreshes its dialer action');
+nodes.cmName.value = 'Owner outreach';
+context.window.cmAddCampaign();
+assert.equal(storage.commCampaigns.length, 1);
+assert.equal(storage.commCampaigns[0].created, '2026-09-29', 'campaign date follows the device calendar, not UTC');
+nodes.cmCampaign.value = String(storage.commCampaigns[0].id);
+nodes.cmOutcome.value = 'Attempted';
+context.window.cmLogCall();
+assert.equal(storage.commActivity[0].kind, 'call');
+assert.equal(storage.commFollowups.length, 1);
+assert.equal(storage.commFollowups[0].due, '2026-10-02', 'evening follow-up uses three local calendar days');
+nodes.cmTemplate.value = 'absentee';
+context.window.cmDraftMail();
+assert.match(nodes.cmLetter.value, /123 Main/);
+context.window.cmLogMail();
+assert.equal((storage.commActivity || []).filter(row => row.kind === 'mail').length, 0,
+  'a starter letter must be reviewed and saved before logging mail');
+nodes.cmLetter.value = 'Dear Owner,\nCustom offer for 123 Main.\nKen LePosa';
+context.window.cmSaveLetter();
+assert.equal(storage.commLetters[0].text, nodes.cmLetter.value);
+context.window.cmLoadLetter();
+assert.match(nodes.cmLetter.value, /Custom offer/);
+nodes.cmLetter.value = 'A revised draft for the first owner';
+context.window.cmLetterChanged();
+nodes.cmLead.value = '';
+context.window.cmSaveLetter();
+assert.equal(storage.commLetters[0].text, 'Dear Owner,\nCustom offer for 123 Main.\nKen LePosa',
+  'an unselected lead must not change an existing saved draft');
+nodes.cmLead.value = '12';
+context.window.cmSaveLetter();
+assert.equal(storage.commLetters[0].text, 'A revised draft for the first owner');
+storage.leads.push({id: 13, name: 'Other owner', prop: '13 Elm', mailingAddress: 'PO Box 13'});
+nodes.cmLetter.value = 'Unsaved first owner edit';
+context.window.cmLetterChanged();
+nodes.cmLead.value = '13';
+context.window.cmSaveLetter();
+assert.equal(storage.commLetters[0].text, 'Unsaved first owner edit',
+  'switching leads must preserve edits under the original lead');
+assert.equal(storage.commLetters.some(row => row.key.startsWith('13:')), false,
+  'saving during a lead switch must not attach the previous letter to the new lead');
+nodes.cmLead.value = '12';
+context.window.cmLoadLetter();
+storage.leads.pop();
+nodes.cmLetter.value = 'Dear Owner,\nCustom offer for 123 Main.\nKen LePosa';
+context.window.cmSaveLetter();
+context.window.cmEnhanceLetter();
+assert.match(storage.aiPrompt, /Custom offer/);
+assert.match(nodes.cmLetter.value, /Custom offer/, 'AI request must not replace the draft');
+context.window.aiMode = null;
+context.window.cmAIResult('Dear Owner,\nImproved version for 123 Main.\nKen LePosa');
+assert.match(nodes.cmAiSuggestion.value, /Improved version/);
+assert.match(nodes.cmLetter.value, /Custom offer/, 'AI suggestion waits for review');
+context.window.cmApplySuggestion();
+assert.match(storage.commLetters[0].text, /Improved version/);
+storage.leads.push({id: 14, name: 'Third owner', prop: '14 Pine', mailingAddress: 'PO Box 14'});
+nodes.cmLead.value = '14';
+context.window.cmLogMail();
+assert.equal(storage.commActivity.filter(row => row.kind === 'mail').length, 0,
+  'switching leads cannot record the previous lead’s letter as mailed');
+nodes.cmLead.value = '12';
+storage.leads.pop();
+nodes.cmMailCost.value = '1.25';
+context.window.cmLogMail();
+assert.equal(storage.commActivity[0].cost, 1.25);
+assert.match(storage.commActivity[0].letterText, /Improved version/);
+nodes.cmConversion.value = 'Client';
+nodes.cmRevenue.value = '5000';
+context.window.cmLogConversion();
+assert.match(nodes.cmMetrics.innerHTML, /Client conversion/);
+assert.match(nodes.cmMetrics.innerHTML, /5000/);
+nodes.cmRevenue.value = '5200';
+context.window.cmLogConversion();
+assert.equal(storage.commActivity.filter(row => row.kind === 'conversion').length, 1,
+  'updating a conversion must not count revenue twice');
+assert.match(nodes.cmMetrics.innerHTML, /5200/);
+assert.doesNotMatch(nodes.cmMetrics.innerHTML, /10200/);
+storage.leads[0].dnc = 'Do Not Call';
+const before = storage.commActivity.length;
+context.window.location.href = '';
+context.window.cmUpdateDialer();
+assert.equal(nodes.cmDialButton.disabled, true);
+context.window.cmOpenDialer();
+assert.equal(context.window.location.href, '', 'suppressed leads must not open the dialer');
+context.window.cmLogCall();
+assert.equal(storage.commActivity.length, before);
+context.window.cmOpenOwner(2);
+assert.equal(storage.leads.length, 2);
+assert.equal(nodes.cmLead.value, String(storage.leads[0].id));
+assert.equal(nodes.cmDialButton.disabled, true, 'owner handoff without a phone disables the dialer');
+context.window.cmOpenOwner(2);
+assert.equal(storage.leads.length, 2, 'owner handoff must not duplicate lead');
+nodes.cmLetter.value = 'Edited for second owner';
+context.window.cmLetterChanged();
+nodes.cmLead.value = '12';
+context.window.cmLoadLetter();
+assert.equal(storage.commLetters.find(row => row.key.startsWith(String(storage.leads[0].id) + ':')).text, 'Edited for second owner');
+assert.match(nodes.cmLetter.value, /Improved version/);
+nodes.cmLead.value = String(storage.leads[0].id);
+context.window.cmLoadLetter();
+context.window.cmOptOutMail();
+assert.equal(storage.leads[0].mailOptOut, true);
+const mailCount = storage.commActivity.length;
+context.window.cmLogMail();
+assert.equal(storage.commActivity.length, mailCount, 'opted-out lead must not log a mailing');
+nodes.cmCampaign.value = String(storage.commCampaigns[0].id);
+context.window.cmEnrollLead();
+assert.equal(storage.commEnrollments.filter(row => row.active).length, 1);
+assert.equal(storage.commFollowups.filter(row => row.source === 'campaign-cadence').length, 3);
+context.window.cmEnrollLead();
+assert.equal(storage.commFollowups.filter(row => row.source === 'campaign-cadence').length, 3, 'enrollment is idempotent');
+const cadenceTask = storage.commFollowups.find(row => row.source === 'campaign-cadence');
+cadenceTask.due = '2000-01-01';
+context.window.cmRefresh();
+assert.equal(nodes.dFollowups.textContent, 1);
+context.window.cmToggleCampaign(storage.commCampaigns[0].id);
+assert.equal(nodes.dFollowups.textContent, 0, 'paused campaign tasks are excluded from the due count');
+assert.match(nodes.cmFollowups.innerHTML, /Campaign paused/);
+nodes.cmLead.value = '12';
+nodes.cmCampaign.value = '';
+context.window.cmOpenFollowup(cadenceTask.id);
+assert.equal(nodes.cmLead.value, String(cadenceTask.leadId));
+assert.equal(nodes.cmCampaign.value, String(cadenceTask.campaignId));
+assert.equal(storage.commActivity.length, mailCount, 'reviewing a task sends no outreach');
+context.window.cmToggleCampaign(storage.commCampaigns[0].id);
+assert.equal(nodes.dFollowups.textContent, 1, 'resuming restores due tasks');
+context.window.cmUnenrollLead();
+assert.equal(storage.commEnrollments.filter(row => row.active).length, 0);
+assert.equal(storage.commFollowups.filter(row => row.source === 'campaign-cadence').length, 0);
+storage.leads.find(row => row.id === 12).status = 'Not Interested';
+nodes.cmLead.value = '12';
+context.window.cmEnrollLead();
+assert.equal(storage.commEnrollments.filter(row => row.active).length, 0, 'do not enroll uninterested lead');
+storage.commFollowups.push({id: 999, leadId: 12, task: 'Tomorrow evening check', due: '2026-09-30', done: false});
+context.window.cmRefresh();
+assert.equal(nodes.dFollowups.textContent, 0, 'tomorrow is not due merely because UTC has crossed midnight');
+testNow = '2026-03-08T04:30:00Z'; // March 7 at 11:30 PM, before the DST transition.
+storage.leads.find(row => row.id === 12).dnc = 'Unknown';
+nodes.cmOutcome.value = 'Attempted';
+context.window.cmLogCall();
+assert.equal(storage.commFollowups[0].due, '2026-03-10', 'calendar cadence stays correct across daylight saving time');
+console.log('Communications workflow checks passed');
