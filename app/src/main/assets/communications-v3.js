@@ -141,6 +141,7 @@
     el('cmLead').value = String(leadId);
     go('comms');
     window.cmLoadLetter();
+    window.cmUpdateDialer();
   };
   window.cmOpenOwner = function (ownerId) {
     const owner = read('owners').find(row => String(row.id) === String(ownerId));
