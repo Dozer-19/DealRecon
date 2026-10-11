@@ -40,6 +40,7 @@ jobs:
           node --check app/src/main/assets/ai-test.js
           node tests/communications-v3.test.js
           node tests/pilot-plan.test.mjs
+          node tests/campaign-control.test.mjs
           node tests/phone-recon-worker.test.mjs
           node tests/phone-recon-secure-client.test.mjs
 

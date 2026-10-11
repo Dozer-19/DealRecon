@@ -8,7 +8,7 @@ const cents = (value, name) => {
 };
 export function buildPilotPlan({month, campaignId, recipients, content, rates, spentCents = 0, reservedCents = 0}) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('Valid billing month required');
-  if (!campaignId || !Array.isArray(recipients) || !recipients.length) throw new Error('Campaign and recipients required');
+  if (typeof campaignId !== 'string' || !campaignId.trim() || !Array.isArray(recipients) || !recipients.length) throw new Error('Campaign and recipients required');
   if (!content?.postcardFront || !content?.postcardBack || !content?.callScript || !content?.voiceId)
     throw new Error('Complete postcard, script, and voice choice required');
   const prior = cents(spentCents, 'Spent') + cents(reservedCents, 'Reserved');
@@ -42,6 +42,8 @@ export function buildPilotPlan({month, campaignId, recipients, content, rates, s
   const postcardCount = included.filter(row => row.channels.includes('postcard')).length;
   const maximumCallCents = callCount * Math.ceil(minute * rates.maxCallSeconds / 60);
   const estimatedMaximumCents = fixed + postcardCount * postcard + maximumCallCents;
+  if (![prior, minute * rates.maxCallSeconds, estimatedMaximumCents, prior + estimatedMaximumCents].every(Number.isSafeInteger))
+    throw new Error('Cost calculation exceeds safe integer range');
   const review = {month, campaignId, recipients: included, excluded, content, rates,
     callCount, postcardCount, estimatedMaximumCents, spentCents, reservedCents,
     monthlyLimitCents: MONTHLY_LIMIT_CENTS};
