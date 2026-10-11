@@ -64,4 +64,7 @@ export class CampaignControl {
     if (typeof paused !== 'boolean') throw new Error('Boolean pause state required');
     return this.change(actorUid, state => {state.paused = paused; return {paused, liveExecutionEnabled: false};});
   }
+  status(actorUid) {
+    return this.change(actorUid, state => ({...state, liveExecutionEnabled: false, monthlyLimitCents: MONTHLY_LIMIT_CENTS}));
+  }
 }

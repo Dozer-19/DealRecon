@@ -41,6 +41,7 @@ jobs:
           node tests/communications-v3.test.js
           node tests/pilot-plan.test.mjs
           node tests/campaign-control.test.mjs
+          node tests/campaign-worker.test.mjs
           node tests/phone-recon-worker.test.mjs
           node tests/phone-recon-secure-client.test.mjs
 
