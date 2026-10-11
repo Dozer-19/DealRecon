@@ -48,6 +48,18 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN"
           [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]]
           npx --yes wrangler@4.137.0 deploy --config wrangler.toml
+      - name: Configure private owner access when supplied
+        working-directory: communications-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_V3_STAGING_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CAMPAIGN_OWNER_EMAIL: ${{ secrets.DEALRECON_CAMPAIGN_OWNER_EMAIL }}
+        run: |
+          if test -n "$CAMPAIGN_OWNER_EMAIL"; then
+            printf '%s' "$CAMPAIGN_OWNER_EMAIL" | npx --yes wrangler@4.137.0 secret put CAMPAIGN_OWNER_EMAIL --config wrangler.toml
+          else
+            echo 'Private owner configuration pending; account access remains blocked.'
+          fi
       - name: Verify unsigned reviews rejected
         run: |
           set -euo pipefail

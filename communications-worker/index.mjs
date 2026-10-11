@@ -19,7 +19,10 @@ export async function handleCampaignRequest(request, env, deps = {}) {
   let claims;
   try {claims = await (deps.verifyToken || verifyFirebaseIdToken)(token);}
   catch {return response(401, {error: 'Invalid sign-in'}, cors);}
-  if (!env.CAMPAIGN_OWNER_UID || claims.sub !== env.CAMPAIGN_OWNER_UID)
+  const verifiedOwnerEmail = typeof claims.email === 'string' && claims.email_verified === true &&
+    typeof env.CAMPAIGN_OWNER_EMAIL === 'string' && env.CAMPAIGN_OWNER_EMAIL.length > 0 &&
+    claims.email.toLowerCase() === env.CAMPAIGN_OWNER_EMAIL.toLowerCase();
+  if (env.CAMPAIGN_OWNER_UID ? claims.sub !== env.CAMPAIGN_OWNER_UID : !verifiedOwnerEmail)
     return response(403, {error: 'Owner authorization required'}, cors);
   if (!env.CAMPAIGN_CONTROL) return response(503, {error: 'Campaign storage unavailable'}, cors);
   const action = new URL(request.url).pathname;
@@ -36,7 +39,8 @@ export async function handleCampaignRequest(request, env, deps = {}) {
   const object = env.CAMPAIGN_CONTROL.get(env.CAMPAIGN_CONTROL.idFromName('workspace'));
   try {
     const result = await object.fetch('https://campaign.internal' + action, {
-      method: 'POST', body: JSON.stringify({actorUid: claims.sub, body})});
+      method: 'POST', body: JSON.stringify({actorUid: claims.sub,
+        verifiedOwnerEmail: verifiedOwnerEmail ? env.CAMPAIGN_OWNER_EMAIL : null, body})});
     return response(result.status, await result.json(), cors);
   } catch {return response(503, {error: 'Campaign storage unavailable'}, cors);}
 }
@@ -48,13 +52,13 @@ export class CampaignControlObject {
     // This object is reachable only through the private Worker binding.
     let envelope;
     try {envelope = await request.json();} catch {return response(400, {error: 'Invalid JSON'});}
-    if (!this.env.CAMPAIGN_OWNER_UID || envelope.actorUid !== this.env.CAMPAIGN_OWNER_UID)
+    const emailOwner = this.env.CAMPAIGN_OWNER_EMAIL && envelope.verifiedOwnerEmail === this.env.CAMPAIGN_OWNER_EMAIL;
+    if (!envelope.actorUid || (this.env.CAMPAIGN_OWNER_UID ? envelope.actorUid !== this.env.CAMPAIGN_OWNER_UID : !emailOwner))
       return response(403, {error: 'Owner authorization required'});
     let rates;
     try {rates = JSON.parse(this.env.CAMPAIGN_QUOTED_RATES || 'null');}
     catch {return response(503, {error: 'Quoted rates unavailable'});}
-    if (!rates) return response(503, {error: 'Quoted rates unavailable'});
-    const control = new CampaignControl(this.ctx.storage, this.env.CAMPAIGN_OWNER_UID, rates);
+    const control = new CampaignControl(this.ctx.storage, envelope.actorUid, rates);
     const body = envelope.body || {};
     try {
       let result;
@@ -66,7 +70,7 @@ export class CampaignControlObject {
         case '/pause': result = await control.pause(envelope.actorUid, body.paused); break;
         default: return response(404, {error: 'Route unavailable'});
       }
-      return response(200, {ok: true, result, liveExecutionEnabled: false});
+      return response(200, {ok: true, result, pricingConfigured: !!rates, liveExecutionEnabled: false});
     } catch (error) {return response(409, {error: error.message, liveExecutionEnabled: false});}
   }
 }

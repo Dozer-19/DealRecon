@@ -4,7 +4,7 @@ import {buildPilotPlan, MONTHLY_LIMIT_CENTS} from './pilot-plan.mjs';
 // actorUid must come from a verified server authentication token, never request JSON.
 export class CampaignControl {
   constructor(storage, ownerUid, quotedRates) {
-    if (!storage?.transaction || !ownerUid || !quotedRates) throw new Error('Transactional storage, server-configured owner and quoted rates required');
+    if (!storage?.transaction || !ownerUid) throw new Error('Transactional storage and server-configured owner required');
     this.storage = storage;
     this.ownerUid = ownerUid;
     this.quotedRates = structuredClone(quotedRates);
@@ -19,6 +19,7 @@ export class CampaignControl {
     });
   }
   submit(actorUid, input) {
+    if (!this.quotedRates) throw new Error('Provider pricing is not configured; campaign submission is disabled');
     // Server computes costs; callers cannot override ledger balances or approval state.
     const plan = buildPilotPlan({...structuredClone(input), rates: this.quotedRates, spentCents: 0, reservedCents: 0});
     if (!plan.recipients.length) throw new Error('No eligible recipients to review');
