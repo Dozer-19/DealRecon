@@ -1,0 +1,15 @@
+# Review-only automation pilot
+
+Owner requirements: realistic AI voice, postcards, combined $45 monthly planning limit, and owner review of every campaign. Budget preference is not permission to charge or send.
+
+Proposed pilot: up to 20 postcards at a planning allowance of $1.25 each, plus at most five consent-qualified AI calls of three minutes each at $0.35/minute, and a $2 phone-number allowance. Planning total $32.25 leaves $12.75 for quote differences/taxes. These allowances are not provider quotes. Reduce volume if the all-in quote exceeds the allowance; do not spend the reserve without approval. If no qualifying call recipients exist, prepare postcards only.
+
+Candidates researched October 6, 2026: Retell advertises $0.07–$0.31/minute voice agents and $2/month phone numbers; voice, model, carrier, add-ons, taxes and account funding require verification. Lob Developer advertises postcards starting at $0.905 each for print/postage; final size, postage, address verification and taxes must be quoted. Sources: https://www.retellai.com/pricing and https://www.lob.com/pricing . Neither account was opened or funded.
+
+Postcard front draft: “Considering your options for your South Jersey property?” Back draft: “I’m Ken LePosa II, an investor-friendly real estate agent with Coldwell Banker Realty. Whether you’re considering selling or simply want to understand your property’s market value, I’d be glad to discuss your options. Visit kensellssouthjersey.com. The Ken LePosa Real Estate Group of Coldwell Banker Realty.” Add verified brokerage/contact details, required disclosures and a working response/opt-out route before approval. No artwork is approved for print yet.
+
+AI opener draft: “Hi, this is an AI assistant calling for Ken LePosa II with Coldwell Banker Realty about your request to discuss property options. Is now a good time?” Use only when that request and appropriate call consent are documented and reviewed. Respect suppression and withdrawal, provide a human callback route, and use no recording until its requirements are addressed. A skip-traced number alone is not consent evidence. Voice choice requires an owner-reviewed preview; no cloning or impersonation is proposed.
+
+Server planner: communications-engine/pilot-plan.mjs is a pure review manifest builder. It has no outbound calls, mail dispatch, provider credentials, approval endpoint, or durable budget ledger. Its $45 test is advisory until an authenticated server has an atomic monthly spend/reservation ledger. SHA-256 identifies exact content, rates and recipients; it is not an authorization signature. Production integration must bind authenticated owner approval to that snapshot, invalidate approval after any change, reserve worst-case costs before dispatch, recheck suppression/consent, enforce call duration, prevent duplicate sends, verify webhook signatures, and reconcile costs.
+
+Next: select provider accounts and confirm all-in rates without funding; obtain brokerage details, voice preview and eligible recipients; build server approval/ledger and sandbox adapters; present exact campaign to owner. No live actions authorized.

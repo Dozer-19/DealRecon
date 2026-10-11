@@ -1,0 +1,16 @@
+name = "deal-recon-phone-recon-v3"
+main = "index.mjs"
+compatibility_date = "2026-09-24"
+
+[vars]
+LOOKUPS_ENABLED = "false"
+MAX_DAILY_LOOKUPS = "0"
+MAX_MONTHLY_LOOKUPS = "0"
+
+[[durable_objects.bindings]]
+name = "PHONE_RECON_QUOTA"
+class_name = "PhoneReconQuota"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PhoneReconQuota"]
