@@ -11,6 +11,7 @@ import android.webkit.ValueCallback;
 import android.webkit.JavascriptInterface;
 import android.os.Bundle;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -42,6 +43,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 public class MainActivity extends Activity {
+private boolean freeEdition = true;
 private GenerativeModelFutures aiModel;
 private GenerativeModelFutures aiFallbackModel;
     private WebView webView;
@@ -83,8 +85,22 @@ aiFallbackModel = GenerativeModelFutures.from(fallbackModel);
         s.setUseWideViewPort(true);
 webView.addJavascriptInterface(new DealReconAI(), "DealReconAI");
         webView.setWebViewClient(new WebViewClient() {
+            private boolean openPhoneDialer(String url) {
+                if (url == null || !url.matches("tel:\\+?[0-9]{7,15}")) return false;
+                startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse(url)));
+                return true;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                if (openPhoneDialer(url)) return true;
+                return shouldOverrideUrlLoading(view, url);
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (openPhoneDialer(url)) return true;
                 if (url != null &&
                     camdenLookupActive &&
                     isCamdenSearchUrl(url)) {
@@ -1086,6 +1102,8 @@ private class DealReconAI {
 
     @JavascriptInterface
     public void analyzeDeedImage(String base64Image, String prompt) {
+if (freeEdition) { sendAIError("Online AI is disabled in the free edition. Use editable letter templates and manual record review."); return; }
+
         try {
             if (base64Image == null || base64Image.trim().isEmpty()) {
                 sendAIError("No deed image was received.");
@@ -1284,7 +1302,20 @@ private class DealReconAI {
     }
 
     @JavascriptInterface
+    public void shareLetter(String text) {
+        if (text == null || text.trim().isEmpty() || text.length() > 50000) return;
+        runOnUiThread(() -> {
+            Intent share = new Intent(Intent.ACTION_SEND);
+            share.setType("text/plain");
+            share.putExtra(Intent.EXTRA_TEXT, text);
+            startActivity(Intent.createChooser(share, "Export letter"));
+        });
+    }
+
+    @JavascriptInterface
     public void ask(String prompt) {
+if (freeEdition) { sendAIError("Online AI is disabled in the free edition. Use editable letter templates and manual record review."); return; }
+
 Content content = new Content.Builder().addText(prompt).build();
 ListenableFuture<GenerateContentResponse> future = aiModel.generateContent(content);
 future.addListener(() -> {

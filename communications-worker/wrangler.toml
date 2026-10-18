@@ -1,0 +1,12 @@
+name = "deal-recon-campaigns-v3"
+main = "index.mjs"
+compatibility_date = "2026-09-24"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "CAMPAIGN_CONTROL"
+class_name = "CampaignControlObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CampaignControlObject"]

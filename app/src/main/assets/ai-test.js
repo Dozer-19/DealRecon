@@ -86,7 +86,7 @@ Return ONLY valid JSON in exactly this structure:
 If the grantee cannot be read confidently, set ownerName and grantee to an empty string.
 `;
 
-            DealReconAI.analyzeDeedImage(reader.result, prompt);
+            window.onDealReconAIError("Online AI image reading is disabled in the free edition. Review the county record manually.");
         };
 
         reader.onerror = function() {
@@ -98,6 +98,11 @@ If the grantee cannot be read confidently, set ownerName and grantee to an empty
 });
 
 window.onDealReconAIResult = function(text) {
+    if (window.aiMode === "letter") {
+        window.aiMode = null;
+        if (typeof window.cmAIResult === "function") window.cmAIResult(text);
+        return;
+    }
     if (window.aiMode === "deed") {
         try {
             let cleaned = String(text || "").trim();
@@ -190,6 +195,11 @@ window.onDealReconAIResult = function(text) {
 };
 
 window.onDealReconAIError = function(message) {
+    if (window.aiMode === "letter") {
+        window.aiMode = null;
+        if (typeof window.cmAIError === "function") window.cmAIError(message);
+        return;
+    }
     if (window.aiMode === "deed") {
         alert("AI Deed Reader Error:\n\n" + message);
         window.aiMode = null;
@@ -274,7 +284,7 @@ Do not invent missing facts. Clearly identify assumptions.
     window.aiDealMode = true;
 
     if (window.DealReconAI) {
-        DealReconAI.ask(prompt);
+        window.onDealReconAIError("Online AI is disabled in the free edition.");
     } else {
         if (box) box.innerText = "Deal Recon AI bridge is not available.";
     }

@@ -1,24 +1,45 @@
 window.parseLeadReconCSV = function(text) {
-    const rows = String(text || "").split(/\r?\n/).filter(x => x.trim());
+    const rows = [];
+    let row = [], field = "", quoted = false;
+    const input = String(text || "").replace(/^\uFEFF/, "");
+    for (let i = 0; i < input.length; i++) {
+        const ch = input[i];
+        if (ch === '"') {
+            if (quoted && input[i + 1] === '"') { field += '"'; i++; }
+            else quoted = !quoted;
+        } else if (ch === "," && !quoted) { row.push(field.trim()); field = ""; }
+        else if ((ch === "\n" || ch === "\r") && !quoted) {
+            if (ch === "\r" && input[i + 1] === "\n") i++;
+            row.push(field.trim()); field = "";
+            if (row.some(Boolean)) rows.push(row);
+            row = [];
+        } else field += ch;
+    }
+    if (quoted) throw new Error("CSV contains an unfinished quoted field.");
+    row.push(field.trim());
+    if (row.some(Boolean)) rows.push(row);
     if (rows.length < 2) return [];
-    const parseRow = row => row.match(/(".*?"|[^",]+|(?<=,)(?=,))/g)?.map(x => x.replace(/^"|"$/g, "").trim()) || [];
-    const headers = parseRow(rows.shift()).map(x => x.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""));
-    return rows.map(row => { const values = parseRow(row); const record = {}; headers.forEach((h,i) => record[h] = values[i] || ""); return record; });
+    const headers = rows.shift().map(x => x.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""));
+    return rows.map(values => Object.fromEntries(headers.map((h, i) => [h, values[i] || ""])));
 };
 window.importLeadSourceCSV = function(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = function() {
-        const rows = window.parseLeadReconCSV(reader.result);
+        let rows;
+        try { rows = window.parseLeadReconCSV(reader.result); }
+        catch (error) { alert(error.message); return; }
         const leads = get("leads");
         const selectedType = document.getElementById("finderLeadType")?.value || "Other";
         rows.forEach(r => {
             const lead = {
                 id: Date.now() + Math.random(),
                 dealId: null,
-                name: r.owner_name || r.owner || r.name || "",
-                prop: r.property_address || r.address || "",
+                name: r.owner_name || [r.owner_name1, r.owner_name2].filter(Boolean).join(" / ") || r.owner || r.name || "",
+                prop: r.property_address || r.prop_loc || r.address || "",
+                parcelId: r.parcel_id || r.pams_pin || "",
+                mailingAddress: r.mailing_address || r.mail_address || [r.st_address, r.city_state, r.zip_code].filter(Boolean).join(", "),
                 phone: r.phone || "",
                 email: r.email || "",
                 type: r.lead_type || selectedType,
@@ -293,6 +314,8 @@ window.renderNJCandidate = function(c) {
     return `<div class="notice" style="margin:10px 0">
         <strong>${c.propertyAddress || "Unknown Address"}</strong><br>
         Owner: ${owner}<br>
+        ${!c.ownerName ? '<small>NJ statewide data omits owner names. Review an authorized owner record before contact lookup.</small><br>' : ""}
+        ${!c.ownerName && String(c.county).toUpperCase() === "GLOUCESTER" ? '<a href="https://gloucestercountynj.gov/1119/Search-Tax-Records" target="_blank" rel="noopener noreferrer">Gloucester County tax records</a><br>' : ""}
         Score: ${c.score || 0} • ${window.njMultifamilyConfidence(c) === "Strong" ? "Strong Multifamily Signal" : window.njMultifamilyConfidence(c) === "Possible" ? "Possible Multifamily Signal" : "Property"}${units ? " • NJ Record: " + units + " Dwellings" : ""}<br>
         ${c.yearsOwned ? c.yearsOwned + " Years Owned • " : ""}Possible Absentee: ${c.absentee || "Unknown"}<br>
         Equity Signal: ${c.equitySignal || "None"} <small>(estimate only)</small><br>
