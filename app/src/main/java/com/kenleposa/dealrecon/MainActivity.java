@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 public class MainActivity extends Activity {
+private boolean freeEdition = true;
 private GenerativeModelFutures aiModel;
 private GenerativeModelFutures aiFallbackModel;
     private WebView webView;
@@ -1101,6 +1102,8 @@ private class DealReconAI {
 
     @JavascriptInterface
     public void analyzeDeedImage(String base64Image, String prompt) {
+if (freeEdition) { sendAIError("Online AI is disabled in the free edition. Use editable letter templates and manual record review."); return; }
+
         try {
             if (base64Image == null || base64Image.trim().isEmpty()) {
                 sendAIError("No deed image was received.");
@@ -1299,7 +1302,20 @@ private class DealReconAI {
     }
 
     @JavascriptInterface
+    public void shareLetter(String text) {
+        if (text == null || text.trim().isEmpty() || text.length() > 50000) return;
+        runOnUiThread(() -> {
+            Intent share = new Intent(Intent.ACTION_SEND);
+            share.setType("text/plain");
+            share.putExtra(Intent.EXTRA_TEXT, text);
+            startActivity(Intent.createChooser(share, "Export letter"));
+        });
+    }
+
+    @JavascriptInterface
     public void ask(String prompt) {
+if (freeEdition) { sendAIError("Online AI is disabled in the free edition. Use editable letter templates and manual record review."); return; }
+
 Content content = new Content.Builder().addText(prompt).build();
 ListenableFuture<GenerateContentResponse> future = aiModel.generateContent(content);
 future.addListener(() -> {

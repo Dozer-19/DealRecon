@@ -39,7 +39,7 @@ window.importLeadSourceCSV = function(event) {
                 name: r.owner_name || [r.owner_name1, r.owner_name2].filter(Boolean).join(" / ") || r.owner || r.name || "",
                 prop: r.property_address || r.prop_loc || r.address || "",
                 parcelId: r.parcel_id || r.pams_pin || "",
-                mail: r.mailing_address || r.mail_address || [r.st_address, r.city_state, r.zip_code].filter(Boolean).join(", "),
+                mailingAddress: r.mailing_address || r.mail_address || [r.st_address, r.city_state, r.zip_code].filter(Boolean).join(", "),
                 phone: r.phone || "",
                 email: r.email || "",
                 type: r.lead_type || selectedType,

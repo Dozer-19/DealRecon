@@ -17,7 +17,7 @@ assert.equal(w.parseLeadReconCSV('owner_name\n"A ""quoted"" name"')[0].owner_nam
 assert.throws(() => w.parseLeadReconCSV('owner_name\n"unfinished'));
 w.importLeadSourceCSV({target: {files: [{}]}});
 assert.equal(imported[0].name, 'Owner, Jane');
-assert.equal(imported[0].mail, 'PO Box 1, Test NJ');
+assert.equal(imported[0].mailingAddress, 'PO Box 1, Test NJ');
 assert.equal(imported[0].parcelId, 'P1');
 assert.equal(imported[0].phone, '5551234567');
 const record = w.normalizeNJLead({PAMS_PIN:'P1', COUNTY:'GLOUCESTER', PROP_LOC:'123 Test St', MUN_NAME:'TEST', ST_ADDRESS:'PO Box 1', CITY_STATE:'TEST NJ', ZIP_CODE:'08000'});

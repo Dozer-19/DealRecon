@@ -36,6 +36,9 @@ jobs:
 
       - name: Check V3 JavaScript
         run: |
+          node --check app/src/main/assets/free-workflow.js
+          node tests/free-workflow.test.cjs
+          node tests/lead-records.test.cjs
           node --check app/src/main/assets/communications-v3.js
           node --check app/src/main/assets/ai-test.js
           node tests/communications-v3.test.js

@@ -162,30 +162,16 @@
       save('leads', leads);
       if (typeof renderAll === 'function') renderAll();
     }
+    if (!lead.mailingAddress && owner.mail) {
+      lead.mailingAddress = owner.mail;
+      save('leads', leads);
+    }
     window.cmOpenLead(lead.id);
   };
   let aiLetterKey = '';
   let aiSourceText = '';
   window.cmEnhanceLetter = function () {
-    const lead = requireLead();
-    if (!lead) return;
-    if (window.aiMode || window.aiDealMode) return message('Another AI request is in progress.');
-    const draft = el('cmLetter').value.trim();
-    if (!draft) return message('Write or load a letter first.');
-    if (!window.DealReconAI || typeof window.DealReconAI.ask !== 'function')
-      return message('The app AI connection is unavailable. Your draft is safe.');
-    if (!window.confirm('AI may incur provider usage charges and will receive this letter text. Send it for a suggestion?'))
-      return message('AI request canceled. Your draft is unchanged.');
-    clearTimeout(saveTimer);
-    saveActiveLetter();
-    aiLetterKey = letterKey();
-    aiSourceText = draft;
-    el('cmAiSuggestion').value = '';
-    message('Asking AI for a letter suggestion…');
-    window.aiMode = 'letter';
-    const prompt = 'Rewrite the following South Jersey real estate owner letter to be clear, concise, personal, and professional. Return only the complete revised letter as plain text. Preserve the addressee, property address, signature, brokerage identity, opt-out language, and all provided facts. Do not invent offers, prices, buyer commitments, legal claims, or urgency. Leave any disclosure review placeholder in place. The agent will review before sending.\n\nLETTER:\n' + draft;
-    try { window.DealReconAI.ask(prompt); }
-    catch (error) { window.aiMode = null; window.cmAIError(error.message); }
+    message('Online AI is disabled in the free edition. Edit the template or paste your own revised letter.');
   };
   window.cmAIResult = function (text) {
     if (aiLetterKey !== letterKey()) return message('AI suggestion arrived for another lead. Reopen that lead to request a new suggestion.');

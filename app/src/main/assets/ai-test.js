@@ -86,7 +86,7 @@ Return ONLY valid JSON in exactly this structure:
 If the grantee cannot be read confidently, set ownerName and grantee to an empty string.
 `;
 
-            DealReconAI.analyzeDeedImage(reader.result, prompt);
+            window.onDealReconAIError("Online AI image reading is disabled in the free edition. Review the county record manually.");
         };
 
         reader.onerror = function() {
@@ -284,7 +284,7 @@ Do not invent missing facts. Clearly identify assumptions.
     window.aiDealMode = true;
 
     if (window.DealReconAI) {
-        DealReconAI.ask(prompt);
+        window.onDealReconAIError("Online AI is disabled in the free edition.");
     } else {
         if (box) box.innerText = "Deal Recon AI bridge is not available.";
     }
